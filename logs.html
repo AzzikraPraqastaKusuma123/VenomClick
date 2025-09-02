@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: LIVE TRACKING LOGS v4.0 ::</title>
+    <title>:: LIVE TRACKING LOGS v4.0 (Secure) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -13,6 +13,12 @@
     </style>
 </head>
 <body>
+    <script>
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+    </script>
     <div class="container full-width">
         <h1 class="main-title">> TRACKING_LOGS.DAT (LIVE MAP)</h1>
         <div class="nav-links">
@@ -42,24 +48,23 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        const authToken = localStorage.getItem('authToken');
+        const authHeaders = {
+            'Authorization': `Bearer ${authToken}`
+        };
+
         const logBody = document.getElementById('log-body');
         let map;
         let markersLayer = L.layerGroup();
 
-        // Fungsi untuk menambahkan satu penanda (marker) ke peta
+        // ... (fungsi addMarkerToMap dan addRowToTable tetap sama) ...
         function addMarkerToMap(loc) {
             if (!loc || typeof loc.latitude === 'undefined' || typeof loc.longitude === 'undefined') return;
             const locationString = (loc.city && loc.country) ? `${loc.city}, ${loc.country}` : 'Location unknown';
             const marker = L.marker([loc.latitude, loc.longitude]);
-            marker.bindPopup(`<b>${loc.username}</b><br>
-                ${new Date(loc.created_at).toLocaleString('id-ID')}<br>
-                ${locationString}<br>
-                IP: ${loc.ip_address}<br>
-                ISP: ${loc.isp || 'N/A'}`);
+            marker.bindPopup(`<b>${loc.username}</b><br>${new Date(loc.created_at).toLocaleString('id-ID')}<br>${locationString}<br>IP: ${loc.ip_address}<br>ISP: ${loc.isp || 'N/A'}`);
             markersLayer.addLayer(marker);
         }
-
-        // Fungsi untuk menambahkan satu baris ke tabel
         function addRowToTable(loc) {
             const mapUrl = `https://www.google.com/maps?q=$${loc.latitude},${loc.longitude}`;
             const newRow = document.createElement('tr');
@@ -73,14 +78,17 @@
                 <td class="highlight">${loc.country || 'N/A'}</td>
                 <td><a href="${mapUrl}" target="_blank">View Map</a></td>
             `;
-            // Tambahkan baris baru di paling atas
             logBody.prepend(newRow);
         }
 
-        // Fungsi untuk memuat semua data historis saat halaman dibuka
         async function fetchInitialLogs() {
             try {
-                const res = await fetch('/api/locations');
+                const res = await fetch('/api/locations', { headers: authHeaders });
+                 if (res.status === 401) {
+                    localStorage.removeItem('authToken');
+                    window.location.href = '/login.html';
+                    return;
+                }
                 const rows = await res.json();
                 if (!rows || !rows.length) return;
 
@@ -97,10 +105,10 @@
             }
         }
 
-        // Inisialisasi Peta
+        function initMap() { /* ... fungsi ini tetap sama ... */ }
         function initMap() {
             if (!map) {
-                map = L.map('map').setView([-2.5489, 118.0149], 5); // Center on Indonesia
+                map = L.map('map').setView([-2.5489, 118.0149], 5);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(map);
@@ -108,24 +116,15 @@
             }
         }
 
-        // --- Logika Real-time ---
         const socket = io();
-
         socket.on('connect', () => console.log('✅ Terhubung ke log stream via WebSocket!'));
-
-        // DENGARKAN EVENT BARU 'new_location_logged'
         socket.on('new_location_logged', (newLocation) => {
             console.log('📍 Lokasi baru diterima secara real-time:', newLocation);
-            
-            // Tambahkan marker dan baris tabel baru
             addMarkerToMap(newLocation);
             addRowToTable(newLocation);
-            
-            // Pindahkan peta ke lokasi terbaru
             map.panTo([newLocation.latitude, newLocation.longitude]);
         });
         
-        // Muat data pertama kali saat halaman dibuka
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
             fetchInitialLogs();
