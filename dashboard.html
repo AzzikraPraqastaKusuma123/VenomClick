@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: HACKER-UI DASHBOARD v2.5 ::</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #map { height: 450px; width: 100%; }
+        .leaflet-control-layers { background: rgba(0,0,0,0.8); border: 1px solid #00ff41; }
+        .leaflet-control-layers-base label { color: #fff; font-family: 'VT323', monospace; font-size: 16px; }
+        #log-section { background: black; border: 1px solid #00ff41; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 14px; margin-top: 20px; }
+        #log-section p { margin: 2px 0; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Panel Kiri -->
+        <div class="dashboard-panel panel-left">
+            <h1 class="main-title">> CREATE_LINK.OP</h1>
+            <form id="link-form" class="form-container">
+                <div class="input-group">
+                    <label for="username">> Enter Target ID:</label>
+                    <input type="text" id="username" class="hacker-input" required>
+                </div>
+                <div class="input-group">
+                    <label for="original-url">> Enter Destination URL:</label>
+                    <input type="url" id="original-url" class="hacker-input" placeholder="https://google.com" required>
+                </div>
+                <div class="input-group">
+                    <label for="expires-in">> Set Expiration:</label>
+                    <select id="expires-in" class="hacker-input">
+                        <option value="">Never</option>
+                        <option value="1">1 Hour</option>
+                        <option value="24">24 Hours</option>
+                        <option value="168">7 Days</option>
+                    </select>
+                </div>
+                <button type="submit" id="submit-btn" class="hacker-button">[ GENERATE ]</button>
+            </form>
+            <div id="result-box" class="result-box" style="display:none;"></div>
+            
+            <h1 class="main-title" style="margin-top: 30px;">> SYSTEM_STATS.LOG</h1>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value" id="total-links">0</div><div class="stat-label">Total Links</div></div>
+                <div class="stat-card"><div class="stat-value" id="total-clicks">0</div><div class="stat-label">Total Clicks</div></div>
+                <div class="stat-card"><div class="stat-value" id="total-locations">0</div><div class="stat-label">Locations Logged</div></div>
+            </div>
+
+            <h1 class="main-title" style="margin-top: 30px;">> TOP_5_LINKS.CHART</h1>
+            <canvas id="topLinksChart"></canvas>
+
+            <h1 class="main-title" style="margin-top: 30px;">> BROWSER_STATS.CHART</h1>
+            <canvas id="browserChart"></canvas>
+
+            <h1 class="main-title" style="margin-top: 30px;">> LIVE_LOGS.TXT</h1>
+            <div id="log-section"></div>
+        </div>
+
+        <!-- Panel Kanan -->
+        <div class="dashboard-panel panel-right">
+            <h1 class="main-title">> LINK_DATABASE.LNK</h1>
+            <div id="links-section"><p class="highlight">> Establishing real-time connection...</p></div>
+        </div>
+    </div>
+
+    <!-- Modal Map -->
+    <div id="map-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">×</span>
+            <h2 id="modal-title" class="main-title" style="font-size: 24px;">Location History</h2>
+            <div id="map"></div>
+            <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // --- Variabel Global & Selector ---
+        const linksSection = document.getElementById('links-section');
+        let topLinksChart;
+        let browserChart;
+        const linkForm = document.getElementById('link-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const resultBox = document.getElementById('result-box');
+        const totalLinksEl = document.getElementById('total-links');
+        const totalClicksEl = document.getElementById('total-clicks');
+        const totalLocationsEl = document.getElementById('total-locations');
+        const modal = document.getElementById('map-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const closeBtn = document.querySelector('.close-btn');
+        const mapActionsDiv = document.getElementById('map-actions');
+        const logSection = document.getElementById('log-section');
+        let map;
+        let markersLayer;
+
+        // --- Koneksi Real-time Socket.IO ---
+        const socket = io();
+        socket.on('connect', () => console.log('✅ Terhubung ke server via WebSocket!'));
+
+        socket.on('dashboard_update', (data) => {
+            console.log('📊 Menerima update dashboard:', data);
+            updateLinksTable(data.links);
+            updateStats(data.stats);
+            updateTopLinksChart(data.links);
+            updateBrowserChart(data.browserStats);
+        });
+
+        socket.on('new_log_message', (msg) => {
+            const p = document.createElement('p');
+            p.textContent = msg;
+            logSection.appendChild(p);
+            logSection.scrollTop = logSection.scrollHeight;
+        });
+
+        // --- Fungsi-fungsi Update Tampilan ---
+        function updateLinksTable(links = []) {
+            if (links.length === 0) {
+                linksSection.innerHTML = "<p class='error'>> NO LINKS FOUND.</p>";
+                return;
+            }
+            let html = `<table class="hacker-table">
+                <thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Last Clicked</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+            links.forEach(r => {
+                const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
+                const statusClass = isExpired ? 'error' : 'highlight';
+                const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
+                
+                let mapButton = `<button class="hacker-button small" disabled>[ MAP ]</button>`;
+                if (r.click_count > 0) {
+                    mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`;
+                }
+                
+                const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ HAPUS ]</button>`;
+
+                html += `<tr>
+                    <td>${new Date(r.created_at).toLocaleString('id-ID')}</td>
+                    <td><a href="/${r.id}" target="_blank">${r.id}</a></td>
+                    <td class="highlight">${r.username}</td>
+                    <td class="highlight">${r.click_count}</td>
+                    <td>${r.last_clicked_at ? new Date(r.last_clicked_at).toLocaleString('id-ID') : 'Never'}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                    <td class="action-buttons">${mapButton} ${deleteButton}</td>
+                </tr>`;
+            });
+            html += "</tbody></table>";
+            linksSection.innerHTML = html;
+        }
+        
+        function updateStats(stats) {
+            totalLinksEl.textContent = stats.total_links || 0;
+            totalClicksEl.textContent = stats.total_clicks || 0;
+            totalLocationsEl.textContent = stats.total_locations || 0;
+        }
+
+        function updateTopLinksChart(links = []) {
+            const ctx = document.getElementById('topLinksChart').getContext('2d');
+            const sortedLinks = [...links].sort((a,b)=>b.click_count - a.click_count).slice(0,5);
+            const labels = sortedLinks.map(l => l.id);
+            const data = sortedLinks.map(l => l.click_count);
+            if (topLinksChart) {
+                topLinksChart.data.labels = labels;
+                topLinksChart.data.datasets[0].data = data;
+                topLinksChart.update();
+            } else {
+                topLinksChart = new Chart(ctx, {
+                    type:'bar',
+                    data:{labels,datasets:[{label:'Total Clicks',data,backgroundColor:'rgba(0,255,65,0.5)',borderColor:'#00ff41',borderWidth:1}]},
+                    options:{indexAxis:'y',scales:{x:{ticks:{color:'#00ff41'}},y:{ticks:{color:'#00ff41'}}},plugins:{legend:{display:false}}}
+                });
+            }
+        }
+
+        function updateBrowserChart(browserStats = {}) {
+            const ctx = document.getElementById('browserChart').getContext('2d');
+            const labels = Object.keys(browserStats);
+            const data = Object.values(browserStats);
+            if (browserChart) {
+                browserChart.data.labels = labels;
+                browserChart.data.datasets[0].data = data;
+                browserChart.update();
+            } else {
+                browserChart = new Chart(ctx, {
+                    type:'pie',
+                    data:{labels,datasets:[{data,backgroundColor:['#00ff41','#ff0041','#41aaff','#ffaa00','#888888']}]},
+                    options:{plugins:{legend:{labels:{color:'#00ff41'}}}}
+                });
+            }
+        }
+        
+        async function deleteLink(id, username) {
+            const confirmation = confirm(`Anda yakin ingin menghapus link untuk target '${username}' (${id})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`);
+            if (confirmation) {
+                try {
+                    const response = await fetch(`/api/links/${id}`, { method: 'DELETE' });
+                    const result = await response.json();
+                    if (result.status !== 'success') throw new Error(result.message || 'Gagal menghapus link.');
+                    console.log(`Link ${id} berhasil dihapus.`);
+                } catch (error) { alert(`Error: ${error.message}`); }
+            }
+        }
+
+        // --- Logika Form & Peta ---
+        linkForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.textContent = "[ ...PROCESSING... ]";
+            submitBtn.disabled = true;
+            try {
+                const response = await fetch('/create', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        username: document.getElementById('username').value, 
+                        originalUrl: document.getElementById('original-url').value, 
+                        expiresIn: document.getElementById('expires-in').value 
+                    }) 
+                });
+                const data = await response.json();
+                if (data.newLink) {
+                    resultBox.style.display = 'block';
+                    resultBox.innerHTML = `<p>> LINK GENERATED FOR <span class="highlight">${data.username}</span>: <a href="${data.newLink}" target="_blank">${data.newLink}</a></p>`;
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (err) { 
+                resultBox.style.display = 'block'; 
+                resultBox.innerHTML = `<p class="error">> ERROR: ${err.message}</p>`;
+            } finally { 
+                submitBtn.textContent = "[ GENERATE ]"; 
+                submitBtn.disabled = false; 
+            }
+        });
+
+        function initMap() { 
+            if(!map){
+                const s=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}),
+                      t=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri'});
+                map=L.map('map',{center:[-2.5489,118.0149],zoom:5,layers:[s]}),
+                L.control.layers({"Street View":s,"Satellite View":t}).addTo(map),
+                markersLayer=L.featureGroup().addTo(map)
+            } 
+        }
+
+        async function showMapModal(id,name){
+            modal.style.display="block",
+            modalTitle.textContent=`> Location History for: ${name}`,
+            initMap(),
+            setTimeout(()=>map.invalidateSize(),1),
+            markersLayer.clearLayers(),
+            mapActionsDiv.innerHTML='';
+            try{
+                const e=await fetch(`/api/locations/${id}`),
+                      t=await e.json();
+                if(t&&t.length>0){
+                    t.forEach(o=>{
+                        const a=L.marker([o.latitude,o.longitude]);
+                        a.bindPopup(`<b>${new Date(o.created_at).toLocaleString()}</b><br>IP: ${o.ip_address}<br>${o.browser} on ${o.os}<br>${o.device.type} - ${o.device.vendor} ${o.device.model}`),
+                        markersLayer.addLayer(a)
+                    });
+                    const n=t[0],
+                          s=`https://www.google.com/maps?q=${n.latitude},${n.longitude}`;
+                    mapActionsDiv.innerHTML=`<a href="${s}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`,
+                    map.fitBounds(markersLayer.getBounds())
+                }else alert("No location data found")
+            }catch(r){alert("Failed to fetch location data")}
+        }
+
+        closeBtn.onclick=()=>{modal.style.display="none"},
+        window.onclick=e=>{e.target==modal&&(modal.style.display="none")};
+    </script>
+</body>
+</html>
