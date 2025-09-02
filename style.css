@@ -364,3 +364,62 @@ body {
     height: 250px; /* Atur tinggi canvas */
     width: 100%;
 }
+
+/* ## NOTIFIKASI KLIK BARU ## */
+.click-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #ff4141; /* Warna merah yang mencolok */
+    color: #fff;
+    padding: 15px 20px;
+    border: 2px solid #fff;
+    border-radius: 5px;
+    box-shadow: 0 0 20px #000;
+    z-index: 2000; /* Pastikan notifikasi muncul di atas elemen lain */
+    font-size: 20px;
+    text-shadow: none;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out; /* Animasi fade out */
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.click-notification span {
+    font-size: 28px;
+    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+    transform: translate3d(0, 0, 0);
+}
+
+.click-notification strong {
+    color: #000;
+    text-shadow: none;
+}
+
+@keyframes shake {
+  10%, 90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%, 80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%, 50%, 70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%, 60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}

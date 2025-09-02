@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v2.5 ::</title>
+    <title>:: HACKER-UI DASHBOARD v3.4 (Audio Fix) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -17,8 +17,9 @@
     </style>
 </head>
 <body>
+    <audio id="notification-sound" src="/sounds/notif.mp3" preload="auto"></audio>
+
     <div class="dashboard-container">
-        <!-- Panel Kiri -->
         <div class="dashboard-panel panel-left">
             <h1 class="main-title">> CREATE_LINK.OP</h1>
             <form id="link-form" class="form-container">
@@ -60,14 +61,12 @@
             <div id="log-section"></div>
         </div>
 
-        <!-- Panel Kanan -->
         <div class="dashboard-panel panel-right">
             <h1 class="main-title">> LINK_DATABASE.LNK</h1>
             <div id="links-section"><p class="highlight">> Establishing real-time connection...</p></div>
         </div>
     </div>
 
-    <!-- Modal Map -->
     <div id="map-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">×</span>
@@ -97,12 +96,37 @@
         let map;
         let markersLayer;
 
+        // --- Mekanisme Audio Baru ---
+        let isAudioEnabled = false;
+        const notificationSound = document.getElementById('notification-sound');
+        console.log('Audio element created. Ready for user interaction.');
+
+        function enableAudio() {
+            if (!isAudioEnabled) {
+                console.log('User interaction detected. Attempting to unlock audio...');
+                // Memainkan suara kosong sebentar untuk "membuka" izin audio
+                notificationSound.play().then(() => {
+                    notificationSound.pause();
+                    notificationSound.currentTime = 0;
+                    isAudioEnabled = true;
+                    console.log('✅ Audio unlocked successfully. Notifications will have sound.');
+                    // Hapus listener agar tidak berjalan lagi
+                    document.body.removeEventListener('click', enableAudio);
+                    document.body.removeEventListener('keydown', enableAudio);
+                }).catch(error => {
+                    console.error('❌ Audio unlock failed. Try clicking again.', error);
+                });
+            }
+        }
+        
+        document.body.addEventListener('click', enableAudio, { once: true });
+        document.body.addEventListener('keydown', enableAudio, { once: true });
+
         // --- Koneksi Real-time Socket.IO ---
         const socket = io();
         socket.on('connect', () => console.log('✅ Terhubung ke server via WebSocket!'));
 
         socket.on('dashboard_update', (data) => {
-            console.log('📊 Menerima update dashboard:', data);
             updateLinksTable(data.links);
             updateStats(data.stats);
             updateTopLinksChart(data.links);
@@ -116,7 +140,32 @@
             logSection.scrollTop = logSection.scrollHeight;
         });
 
-        // --- Fungsi-fungsi Update Tampilan ---
+        socket.on('link_clicked', (data) => {
+            showClickNotification(data.username);
+        });
+
+        // --- Fungsi Notifikasi (Diperbarui) ---
+        function showClickNotification(username) {
+            console.log(`Received click from [${username}]. Is audio enabled? ${isAudioEnabled}`);
+            if (isAudioEnabled) {
+                notificationSound.currentTime = 0;
+                notificationSound.play().catch(e => console.error("Error playing sound:", e));
+            } else {
+                console.warn('Cannot play sound because user has not interacted with the page yet.');
+            }
+
+            const notification = document.createElement('div');
+            notification.className = 'click-notification';
+            notification.innerHTML = `<span>💀</span> Target [<strong>${username}</strong>] telah mengakses link!`;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        }
+
+        // --- Sisa fungsi-fungsi lainnya (tidak ada perubahan) ---
         function updateLinksTable(links = []) {
             if (links.length === 0) {
                 linksSection.innerHTML = "<p class='error'>> NO LINKS FOUND.</p>";
@@ -128,14 +177,11 @@
                 const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
                 const statusClass = isExpired ? 'error' : 'highlight';
                 const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
-                
                 let mapButton = `<button class="hacker-button small" disabled>[ MAP ]</button>`;
                 if (r.click_count > 0) {
                     mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`;
                 }
-                
                 const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ HAPUS ]</button>`;
-
                 html += `<tr>
                     <td>${new Date(r.created_at).toLocaleString('id-ID')}</td>
                     <td><a href="/${r.id}" target="_blank">${r.id}</a></td>
@@ -149,13 +195,11 @@
             html += "</tbody></table>";
             linksSection.innerHTML = html;
         }
-        
         function updateStats(stats) {
             totalLinksEl.textContent = stats.total_links || 0;
             totalClicksEl.textContent = stats.total_clicks || 0;
             totalLocationsEl.textContent = stats.total_locations || 0;
         }
-
         function updateTopLinksChart(links = []) {
             const ctx = document.getElementById('topLinksChart').getContext('2d');
             const sortedLinks = [...links].sort((a,b)=>b.click_count - a.click_count).slice(0,5);
@@ -167,13 +211,11 @@
                 topLinksChart.update();
             } else {
                 topLinksChart = new Chart(ctx, {
-                    type:'bar',
-                    data:{labels,datasets:[{label:'Total Clicks',data,backgroundColor:'rgba(0,255,65,0.5)',borderColor:'#00ff41',borderWidth:1}]},
+                    type:'bar', data:{labels,datasets:[{label:'Total Clicks',data,backgroundColor:'rgba(0,255,65,0.5)',borderColor:'#00ff41',borderWidth:1}]},
                     options:{indexAxis:'y',scales:{x:{ticks:{color:'#00ff41'}},y:{ticks:{color:'#00ff41'}}},plugins:{legend:{display:false}}}
                 });
             }
         }
-
         function updateBrowserChart(browserStats = {}) {
             const ctx = document.getElementById('browserChart').getContext('2d');
             const labels = Object.keys(browserStats);
@@ -184,13 +226,11 @@
                 browserChart.update();
             } else {
                 browserChart = new Chart(ctx, {
-                    type:'pie',
-                    data:{labels,datasets:[{data,backgroundColor:['#00ff41','#ff0041','#41aaff','#ffaa00','#888888']}]},
+                    type:'pie', data:{labels,datasets:[{data,backgroundColor:['#00ff41','#ff0041','#41aaff','#ffaa00','#888888']}]},
                     options:{plugins:{legend:{labels:{color:'#00ff41'}}}}
                 });
             }
         }
-        
         async function deleteLink(id, username) {
             const confirmation = confirm(`Anda yakin ingin menghapus link untuk target '${username}' (${id})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`);
             if (confirmation) {
@@ -198,33 +238,23 @@
                     const response = await fetch(`/api/links/${id}`, { method: 'DELETE' });
                     const result = await response.json();
                     if (result.status !== 'success') throw new Error(result.message || 'Gagal menghapus link.');
-                    console.log(`Link ${id} berhasil dihapus.`);
                 } catch (error) { alert(`Error: ${error.message}`); }
             }
         }
-
-        // --- Logika Form & Peta ---
         linkForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             submitBtn.textContent = "[ ...PROCESSING... ]";
             submitBtn.disabled = true;
             try {
                 const response = await fetch('/create', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        username: document.getElementById('username').value, 
-                        originalUrl: document.getElementById('original-url').value, 
-                        expiresIn: document.getElementById('expires-in').value 
-                    }) 
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ username: document.getElementById('username').value, originalUrl: document.getElementById('original-url').value, expiresIn: document.getElementById('expires-in').value }) 
                 });
                 const data = await response.json();
                 if (data.newLink) {
                     resultBox.style.display = 'block';
                     resultBox.innerHTML = `<p>> LINK GENERATED FOR <span class="highlight">${data.username}</span>: <a href="${data.newLink}" target="_blank">${data.newLink}</a></p>`;
-                } else {
-                    throw new Error(data.error);
-                }
+                } else { throw new Error(data.error); }
             } catch (err) { 
                 resultBox.style.display = 'block'; 
                 resultBox.innerHTML = `<p class="error">> ERROR: ${err.message}</p>`;
@@ -233,7 +263,6 @@
                 submitBtn.disabled = false; 
             }
         });
-
         function initMap() { 
             if(!map){
                 const s=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}),
@@ -243,7 +272,6 @@
                 markersLayer=L.featureGroup().addTo(map)
             } 
         }
-
         async function showMapModal(id,name){
             modal.style.display="block",
             modalTitle.textContent=`> Location History for: ${name}`,
@@ -252,22 +280,19 @@
             markersLayer.clearLayers(),
             mapActionsDiv.innerHTML='';
             try{
-                const e=await fetch(`/api/locations/${id}`),
-                      t=await e.json();
+                const e=await fetch(`/api/locations/${id}`), t=await e.json();
                 if(t&&t.length>0){
                     t.forEach(o=>{
                         const a=L.marker([o.latitude,o.longitude]);
                         a.bindPopup(`<b>${new Date(o.created_at).toLocaleString()}</b><br>IP: ${o.ip_address}<br>${o.browser} on ${o.os}<br>${o.device.type} - ${o.device.vendor} ${o.device.model}`),
                         markersLayer.addLayer(a)
                     });
-                    const n=t[0],
-                          s=`https://www.google.com/maps?q=${n.latitude},${n.longitude}`;
+                    const n=t[0], s=`https://www.google.com/maps?q=${n.latitude},${n.longitude}`;
                     mapActionsDiv.innerHTML=`<a href="${s}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`,
                     map.fitBounds(markersLayer.getBounds())
                 }else alert("No location data found")
             }catch(r){alert("Failed to fetch location data")}
         }
-
         closeBtn.onclick=()=>{modal.style.display="none"},
         window.onclick=e=>{e.target==modal&&(modal.style.display="none")};
     </script>
