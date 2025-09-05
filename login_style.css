@@ -1,0 +1,554 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
+/* Reset dan style dasar */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background-color: #202124;
+  font-family: 'Roboto', Arial, sans-serif;
+  color: #e8eaed;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+/* Container utama */
+.login-container {
+  background-color: #171717; /* Warna Latar Belakang Disesuaikan */
+  border-radius: 20px;
+  max-width: 700px;
+  width: 100%;
+  display: flex;
+  gap: 50px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  padding: 40px;
+  box-sizing: border-box;
+  color: #e8eaed;
+}
+
+/* Bagian kiri dengan logo dan text */
+.login-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Logo Google desktop (Disembunyikan) */
+.google-logo {
+  display: none;
+}
+
+/* Logo Google mobile/tablet (Selalu ditampilkan, dan disesuaikan untuk desktop) */
+.google-icon-mobile {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 25px; /* Margin untuk spasi di desktop */
+  display: block; /* Selalu tampilkan */
+  flex-shrink: 0;
+}
+
+/* Judul Login */
+h1 {
+  font-weight: 400;
+  margin: 0;
+  line-height: 1.2;
+}
+/* Desktop font size */
+.login-left h1 {
+  font-size: 40px;
+  color: white;
+}
+/* Mobile font size */
+.login-container.mobile h1 {
+  font-size: 24px;
+}
+
+/* Subjudul */
+.sub-title, .sub-heading {
+  font-size: 16px;
+  color: #8a8a8a;
+}
+
+/* Bagian kanan form */
+.login-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Input */
+input[type="text"], input[type="email"], input[type="tel"], input[type="password"] { /* Tambahkan input[type="password"] */
+  background-color: #3c4043;
+  border: 1px solid #5f6368;
+  border-radius: 4px;
+  color: white;
+  padding: 12px 15px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+input[type="text"]:focus, input[type="email"]:focus, input[type="tel"]:focus, input[type="password"]:focus {
+  border-color: #8ab4f8;
+  background-color: #3c4043;
+}
+
+/* Link Lupa Email */
+.forgot-link, .link {
+  font-size: 14px;
+  color: #8ab4f8;
+  text-decoration: none;
+  cursor: pointer;
+  width: fit-content;
+  user-select: none;
+}
+.forgot-link:hover, .link:hover, .forgot-link:focus, .link:focus {
+  text-decoration: underline;
+  outline: none;
+}
+
+/* Deskripsi tambahan */
+.info-text {
+  font-size: 14px;
+  color: #8a8a8a;
+  line-height: 1.4;
+}
+.info-text a {
+  color: #8ab4f8;
+  text-decoration: none;
+  cursor: pointer;
+}
+.info-text a:hover, .info-text a:focus {
+  text-decoration: underline;
+  outline: none;
+}
+
+/* Bagian bawah: Buat akun dan tombol selanjutnya */
+.login-actions, .button-link-row {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.create-account, .small-link {
+  font-size: 14px;
+  color: #8ab4f8;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+}
+.create-account:hover, .small-link:hover, .create-account:focus, .small-link:focus {
+  text-decoration: underline;
+  outline: none;
+}
+
+/* Tombol Selanjutnya */
+button.next-btn {
+  background-color: #8ab4f8;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 24px;
+  color: #202124;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+button.next-btn:hover:not(:disabled), button.next-btn:focus:not(:disabled) {
+  background-color: #669df6;
+  outline: none;
+}
+button.next-btn:disabled {
+  background-color: #a3c2f8;
+  cursor: not-allowed;
+}
+
+/* Footer bawah */
+footer {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  justify-content: space-between;
+  color: #8a8a8a;
+  font-size: 14px;
+  padding: 0 15px;
+  font-family: Arial, sans-serif;
+  user-select: none;
+  box-sizing: border-box;
+}
+footer .language-select {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  gap: 5px;
+}
+footer .language-select svg {
+  fill: #8a8a8a;
+}
+footer a, footer div {
+  color: #8a8a8a;
+  text-decoration: none;
+  margin-left: 20px;
+}
+footer a:hover, footer a:focus {
+  text-decoration: underline;
+  outline: none;
+}
+
+/* Language selector for mobile (tersembunyi di desktop) */
+.language-select-mobile {
+  position: relative;
+  color: #bdc1c6;
+  user-select: none;
+  cursor: pointer;
+  display: none; /* Sembunyikan secara default untuk desktop */
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+.language-select-mobile select {
+  background: transparent;
+  border: none;
+  color: #bdc1c6;
+  font-size: 14px;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 16px;
+}
+.language-select-mobile select:focus {
+  outline: none;
+}
+.language-select-mobile::after {
+  content: '';
+  border: 6px solid transparent;
+  border-top-color: #bdc1c6;
+  position: absolute;
+  right: 4px;
+  pointer-events: none;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Accessibility helper for visually-hidden text */
+.visually-hidden {
+  position: absolute !important;
+  height: 1px; width: 1px;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+
+/* Style untuk halaman password baru */
+#page-password {
+  display: none; /* Sembunyikan secara default */
+  width: 100%; /* Pastikan mengisi lebar container */
+}
+
+.welcome-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* Mengatur ke atas */
+  gap: 10px;
+}
+
+.welcome-left h1 {
+  font-size: 40px;
+  color: white;
+  margin: 0;
+}
+
+.user-email-info {
+  display: inline-flex;
+  align-items: center;
+  background-color: #3c4043;
+  border: 1px solid #5f6368;
+  border-radius: 20px;
+  padding: 8px 12px;
+  margin-top: 20px; /* Spasi dari h1 */
+  font-size: 14px;
+  color: #e8eaed;
+  width: fit-content;
+  cursor: pointer;
+}
+.user-email-info:hover {
+  background-color: #4a4d50;
+}
+.user-email-info .icon {
+  margin-right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #8ab4f8; /* Placeholder for user icon */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #202124;
+  font-weight: bold;
+  font-size: 12px;
+}
+.user-email-info svg {
+  margin-left: 8px;
+  fill: #8a8a8a;
+}
+
+.password-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.password-right .instruction-text {
+  font-size: 16px;
+  color: #e8eaed;
+  margin-bottom: 5px;
+}
+
+.password-input-group {
+  position: relative;
+  width: 100%;
+}
+
+.show-password-checkbox {
+  display: flex;
+  align-items: center;
+  margin-top: -5px; /* Sesuaikan jarak dengan input password */
+  margin-bottom: 20px; /* Spasi ke tombol */
+  font-size: 14px;
+  color: #e8eaed;
+}
+.show-password-checkbox input[type="checkbox"] {
+  margin-right: 10px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border: 2px solid #5f6368;
+  border-radius: 2px;
+  background-color: #3c4043;
+  position: relative;
+  flex-shrink: 0;
+}
+.show-password-checkbox input[type="checkbox"]:checked {
+  background-color: #8ab4f8;
+  border-color: #8ab4f8;
+}
+.show-password-checkbox input[type="checkbox"]:checked::after {
+  content: '\2713'; /* Checkmark unicode character */
+  position: absolute;
+  top: -2px;
+  left: 2px;
+  font-size: 14px;
+  color: #202124;
+  font-weight: bold;
+}
+.show-password-checkbox label {
+  cursor: pointer;
+}
+
+.password-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  body {
+    padding: 0; /* Remove padding for mobile */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .login-container {
+    flex-direction: column;
+    padding: 24px; /* Reduced padding for mobile */
+    max-width: 360px;
+    width: calc(100% - 48px); /* Adjust width to not touch the screen edges */
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+    background-color: #171717; /* Warna Latar Belakang Disesuaikan */
+    gap: 24px;
+    color: #e8eaed;
+    margin-top: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    position: static;
+  }
+  .login-container.mobile {
+    /* just a marker class for mobile styles */
+  }
+  .login-left {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    justify-content: flex-start;
+    margin-bottom: 24px; /* Space between header and form */
+  }
+  /* Mobile specific for welcome-left */
+  .welcome-left {
+    flex-direction: column; /* Ubah kembali ke kolom */
+    align-items: flex-start; /* Rata kiri */
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .welcome-left h1 {
+    font-size: 24px;
+    margin: 0;
+    color: #e8eaed;
+  }
+  .sub-title {
+    display: none;
+  }
+  .sub-heading {
+    font-size: 14px;
+    color: #bdc1c6;
+    margin: 0 0 24px 0;
+    display: block; /* Show this on mobile */
+  }
+  .google-logo {
+    display: none; /* Pastikan tersembunyi di mobile */
+  }
+  .google-icon-mobile {
+    display: block; /* Pastikan terlihat di mobile */
+    margin-bottom: 0; /* Reset margin untuk mobile */
+  }
+  .login-right {
+    gap: 12px;
+  }
+  .password-right {
+    gap: 12px; /* Sesuaikan gap untuk mobile */
+  }
+  input[type="text"], input[type="email"], input[type="tel"], input[type="password"] {
+    background-color: #202124;
+    border: 1px solid #5f6368;
+    padding: 14px 12px;
+    font-size: 16px;
+    color: #e8eaed;
+  }
+  .forgot-link {
+    font-size: 14px;
+    margin: 12px 0 24px 0;
+    display: inline-block;
+  }
+  .info-text {
+    font-size: 12px;
+    color: #bdc1c6;
+    margin-bottom: 32px;
+    line-height: 1.4;
+  }
+  .info-text a {
+    color: #8ab4f8;
+  }
+  .login-actions {
+    display: none;
+  }
+  .button-link-row {
+    margin-top: 0;
+    justify-content: space-between;
+    align-items: center;
+    display: flex; /* Force display for mobile */
+  }
+  .create-account {
+    display: none;
+  }
+  .small-link {
+    font-size: 14px;
+    color: #8ab4f8;
+    cursor: pointer;
+    user-select: none;
+    display: block;
+  }
+  button.next-btn {
+    border-radius: 20px;
+    padding: 10px 24px;
+    font-weight: 500;
+    font-size: 14px;
+  }
+  footer {
+    position: static;
+    margin-top: 40px;
+    max-width: 360px;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 0;
+    transform: none; /* Remove transform for mobile */
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  footer .language-select {
+    display: none; /* Sembunyikan di mobile */
+  }
+  footer .language-select-mobile {
+    display: flex; /* Tampilkan di mobile */
+  }
+  footer nav {
+    display: flex;
+    gap: 24px;
+  }
+  footer a, footer div {
+    margin-left: 0;
+    cursor: pointer;
+    color: #bdc1c6;
+    font-size: 14px;
+    text-decoration: none;
+  }
+
+  .user-email-info {
+    padding: 6px 10px;
+    font-size: 12px;
+    margin-top: 10px;
+  }
+  .user-email-info .icon {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+  .password-right .instruction-text {
+    font-size: 14px;
+  }
+  .show-password-checkbox {
+    font-size: 12px;
+    margin-top: -10px; /* Adjust for closer spacing */
+    margin-bottom: 15px;
+  }
+  .show-password-checkbox input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+  }
+  .show-password-checkbox input[type="checkbox"]:checked::after {
+    font-size: 12px;
+    top: -1px;
+    left: 1px;
+  }
+  .password-actions {
+    margin-top: 0;
+  }
+}

