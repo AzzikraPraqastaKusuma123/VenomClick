@@ -259,7 +259,7 @@
             modalTitle.textContent = `> Location History for: ${name}`;
             setTimeout(() => map.invalidateSize(), 1); 
             markersLayer.clearLayers(); 
-            mapActionsDiv.innerHTML = '';
+            mapActionsDiv.innerHTML = `<p class="highlight">Memuat data...</p>`;
             try {
                 const response = await fetchProtected(`/api/locations/${id}`); 
                 if (!response.ok) {
@@ -278,7 +278,7 @@
                             markersLayer.addLayer(marker);
                         });
                         const latestLocation = validLocations[0]; 
-                        const googleMapsUrl = `https://www.google.com/maps?q=$${latestLocation.latitude},${latestLocation.longitude}`;
+                        const googleMapsUrl = `https://www.google.com/maps/place/${latestLocation.latitude},${latestLocation.longitude}`;
                         mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ LIHAT LEBIH DETAIL DI GOOGLE MAPS ]</a>`; 
                         map.fitBounds(markersLayer.getBounds());
                     } else {
@@ -299,7 +299,7 @@
         }
 
         function updateStats(e) { totalLinksEl.textContent = e.total_links || 0, totalClicksEl.textContent = e.total_clicks || 0, totalLocationsEl.textContent = e.total_locations || 0 }
-        function updateTopLinksChart(e = []) { const o = document.getElementById('topLinksChart').getContext('2d'), t = [...e].sort((e, o) => o.click_count - e.click_count).slice(0, 5), a = t.map(e => e.id), n = t.map(e => e.click_count); topLinksChart ? (topLinksChart.data.labels = a, topLinksChart.data.datasets[0].data = n, topLinksChart.update()) : topLinksChart = new Chart(o, { type: 'bar', data: { labels: a, datasets: [{ label: 'Total Clicks', data: n, backgroundColor: 'rgba(0,255,65,0.5)', borderColor: '#00ff41', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#00ff41' } }, y: { ticks: { color: '#00ff41' } } }, plugins: { legend: { display: !1 } } } }) }
+        function updateTopLinksChart(e = []) { const o = document.getElementById('topLinksChart').getContext('2d'), t = [...e].sort((e, o) => o.click_count - e.click_count).slice(0, 5), a = t.map(e => e.id), n = t.map(e => e.click_count); topLinksChart ? (topLinksChart.data.labels = a, topLinksChart.data.datasets[0].data = n, topLinksChart.update()) : topLinksChart = new Chart(o, { type: 'bar', data: { labels: a, datasets: [{ label: 'Total Clicks', data: n, backgroundColor: 'rgba(0,255,65,0.5)', borderColor: '#00ff41', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#00ff41' } } }, plugins: { legend: { display: !1 } } } }) }
         function updateBrowserChart(e = {}) { const o = document.getElementById('browserChart').getContext('2d'), t = Object.keys(e), a = Object.values(e); browserChart ? (browserChart.data.labels = t, browserChart.data.datasets[0].data = a, browserChart.update()) : browserChart = new Chart(o, { type: 'pie', data: { labels: t, datasets: [{ data: a, backgroundColor: ['#00ff41', '#ff0041', '#41aaff', '#ffaa00', '#888888'] }] }, options: { plugins: { legend: { labels: { color: '#00ff41' } } } } }) }
 
         async function deleteLink(e, o) { if (confirm(`Anda yakin ingin menghapus link untuk target '${o}' (${e})?\n\nSemua data lokasi terkait juga akan dihapus permanen!`)) try { const response = await fetchProtected(`/api/links/${e}`, { method: 'DELETE' }); if (!response.ok) throw new Error('Gagal menghapus link.') } catch (e) { alert(`Error: ${e.message}`) } }

