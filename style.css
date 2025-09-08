@@ -1,4 +1,4 @@
-/* File: style.css - HACKER-UI v7.6 - Fully Responsive Edition */
+/* File: style.css - HACKER-UI v7.7 - Performance Optimized Edition */
 
 @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -40,47 +40,47 @@ body {
 }
 
 
-/* --- ANIMATIONS --- */
+/* --- [OPTIMASI] ANIMATIONS --- */
 @keyframes scanline {
     0% {
-        transform: translateY(-10%);
+        /* Menggunakan transform, bukan 'top' */
+        transform: translateY(-10vh); 
     }
     100% {
-        transform: translateY(100vh);
+        transform: translateY(110vh);
     }
 }
 
 @keyframes pulse-glow {
+    /* Mengubah opacity, bukan box-shadow yang berat */
     from {
-        box-shadow: var(--glow-primary) inset, 0 0 10px var(--border-primary);
+        opacity: 0.7;
+        transform: scale(1.0);
     }
     to {
-        box-shadow: var(--glow-primary) inset, 0 0 20px var(--text-primary);
+        opacity: 1;
+        transform: scale(1.01);
     }
 }
 
-/* --- EFEK SCANLINE --- */
+/* --- [OPTIMASI] EFEK SCANLINE --- */
 body::after {
     content: '';
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 4px;
-    background: linear-gradient(to right, 
-        rgba(0, 255, 65, 0) 0%, 
-        rgba(0, 255, 65, 0.8) 50%, 
-        rgba(0, 255, 65, 0) 100%
-    );
+    height: 3px; /* Sedikit lebih tipis */
+    background: var(--text-primary);
     box-shadow: var(--glow-primary);
     animation: scanline 8s linear infinite;
     z-index: 9999;
     pointer-events: none;
-    opacity: 0.6;
+    opacity: 0.4;
 }
 
 
-/* --- LAYOUT (Struktur Lama Dipertahankan) --- */
+/* --- LAYOUT --- */
 .dashboard-container {
     display: flex;
     flex-wrap: wrap;
@@ -110,14 +110,66 @@ body::after {
 .dashboard-panel {
     background: var(--bg-panel);
     border: 1px solid var(--border-primary);
-    box-shadow: var(--glow-primary) inset;
+    box-shadow: var(--glow-primary) inset, 0 0 15px var(--border-primary); /* Shadow luar dibuat statis */
     padding: 20px;
     backdrop-filter: blur(5px);
+    /* --- [OPTIMASI] Efek "Bernapas" menggunakan opacity & transform --- */
     animation: pulse-glow 4s infinite alternate ease-in-out;
 }
 
 
-/* --- HEADERS & TITLES --- */
+/* --- (Sisa kode CSS di bawah ini sama persis seperti sebelumnya) --- */
+@media (max-width: 1100px) {
+    .dashboard-container {
+        flex-direction: column;
+        padding: 15px;
+        gap: 20px;
+    }
+
+    .panel-left, .panel-right {
+        min-width: 100%;
+        gap: 20px;
+    }
+    #location-links-section, #merged-credentials-section {
+        overflow-x: auto;
+    }
+    .main-title {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 540px) {
+    body {
+        font-size: 16px;
+    }
+    .dashboard-container {
+        padding: 10px;
+    }
+    .dashboard-panel {
+        padding: 15px;
+    }
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .stat-value {
+        font-size: 28px;
+    }
+    .header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .table-header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .hacker-button.small {
+        width: 100%;
+        text-align: center;
+    }
+}
+
 .main-title {
     color: var(--text-secondary);
     text-shadow: var(--glow-secondary);
@@ -140,7 +192,6 @@ body::after {
     margin-bottom: 0;
 }
 
-/* --- FORMS & INPUTS --- */
 .feature-panel {
     border: 1px solid var(--border-secondary);
     padding: 20px;
@@ -214,8 +265,6 @@ body::after {
 .hacker-button.cyan { background-color: var(--text-secondary); border-color: var(--text-secondary); color: var(--bg-dark); }
 .hacker-button.cyan:hover { background-color: transparent; color: var(--text-secondary); box-shadow: var(--glow-secondary); }
 
-
-/* --- TABLES --- */
 .hacker-table {
     width: 100%;
     border-collapse: collapse;
@@ -242,8 +291,6 @@ body::after {
 .highlight { color: var(--text-accent); text-shadow: var(--glow-accent); }
 .error { color: var(--error-color); text-shadow: var(--glow-error); }
 
-
-/* --- STATS & CHARTS --- */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -266,7 +313,6 @@ canvas {
     padding: 10px;
 }
 
-/* --- LOGS & MISC --- */
 #log-section {
     background: rgba(0,0,0,0.8);
     border: 1px solid var(--border-primary);
@@ -278,13 +324,11 @@ canvas {
 #log-section p { margin: 2px 0; }
 #advanced-options { display: none; border-left: 2px solid var(--border-secondary); padding-left: 15px; margin-top: 10px;}
 
-/* --- MODALS --- */
 .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.9); }
 .modal-content { background-color: var(--bg-dark); margin: 5% auto; padding: 20px; border: 1px solid var(--border-secondary); box-shadow: var(--glow-secondary); width: 80%; max-width: 900px; }
 .close-btn { color: var(--error-color); float: right; font-size: 38px; font-weight: bold; cursor: pointer; }
 .close-btn:hover, .close-btn:focus { color: #fff; }
 
-/* --- NOTIFICATIONS --- */
 .click-notification {
     position: fixed;
     top: 20px; right: 20px;
@@ -303,7 +347,6 @@ canvas {
     transition: opacity 0.5s ease-in-out;
 }
 
-/* --- STYLE UNTUK HALAMAN LOGIN --- */
 .login-wrapper {
     display: flex;
     justify-content: center;
@@ -316,71 +359,4 @@ canvas {
 .login-panel {
     width: 100%;
     max-width: 500px;
-}
-
-
-/* --- [PENAMBAHAN BARU] ATURAN RESPONSIVE UNTUK MOBILE --- */
-
-/* Untuk Tablet dan Mobile (Layar di bawah 1100px) */
-@media (max-width: 1100px) {
-    .dashboard-container {
-        flex-direction: column; /* Ubah layout menjadi 1 kolom */
-        padding: 15px;
-        gap: 20px;
-    }
-
-    .panel-left, .panel-right {
-        min-width: 100%; /* Lebar panel menjadi penuh */
-        gap: 20px;
-    }
-
-    /* Membuat tabel bisa di-scroll horizontal */
-    #location-links-section, #merged-credentials-section {
-        overflow-x: auto;
-    }
-
-    /* Mencegah judul terlalu besar di layar kecil */
-    .main-title {
-        font-size: 24px;
-    }
-}
-
-/* Untuk Mobile Kecil (Layar di bawah 540px) */
-@media (max-width: 540px) {
-    body {
-        font-size: 16px;
-    }
-    
-    .dashboard-container {
-        padding: 10px;
-    }
-
-    .dashboard-panel {
-        padding: 15px;
-    }
-
-    .stats-grid {
-        grid-template-columns: 1fr 1fr; /* Statistik menjadi 2 kolom */
-    }
-
-    .stat-value {
-        font-size: 28px;
-    }
-
-    .header-actions {
-        flex-direction: column; /* Tombol logout pindah ke bawah judul */
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .table-header-actions {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    
-    .hacker-button.small {
-        width: 100%;
-        text-align: center;
-    }
 }

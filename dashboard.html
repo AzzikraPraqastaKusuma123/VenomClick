@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v7.4 (Refined) ::</title>
+    <title>:: HACKER-UI DASHBOARD v7.6 (Responsive) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -82,6 +82,13 @@
         </div>
         
         <div class="panel-right">
+             <div class="dashboard-panel">
+                <div class="table-header-actions">
+                    <h1 class="main-title" style="margin: 0; border: none;">> DATA_CENTER</h1>
+                    <a href="/database_view.html" class="hacker-button small cyan">[ VIEW ALL RAW DATA ]</a>
+                </div>
+            </div>
+
             <div class="dashboard-panel">
                 <h1 class="main-title">> LOCATION_TRACKER_LINKS.DAT</h1>
                 <div id="location-links-section"><p class="highlight">> Awaiting data...</p></div>
@@ -128,8 +135,6 @@
     
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // SELURUH KODE JAVASCRIPT ANDA YANG SEBELUMNYA TETAP SAMA DI SINI
-        // Tidak perlu mengubah apa pun di bagian <script>
         const authToken = localStorage.getItem('authToken');
         const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
 

