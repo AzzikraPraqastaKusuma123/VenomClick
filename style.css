@@ -1,96 +1,160 @@
-/* File: style.css */
+/* File: style.css - HACKER-UI v7.6 - Fully Responsive Edition */
+
 @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
+:root {
+    --bg-dark: #010409;
+    --bg-panel: rgba(13, 27, 42, 0.6);
+    --text-primary: #00ff41; /* Green Neon */
+    --text-secondary: #00ffff; /* Cyan Neon */
+    --text-accent: #ff00ff; /* Magenta Neon */
+    --error-color: #ff4141; /* Red Neon */
+
+    --border-primary: rgba(0, 255, 65, 0.5);
+    --border-secondary: rgba(0, 255, 255, 0.5);
+    --border-accent: rgba(255, 0, 255, 0.5);
+
+    --glow-primary: 0 0 5px rgba(0, 255, 65, 0.7), 0 0 10px rgba(0, 255, 65, 0.5);
+    --glow-secondary: 0 0 5px rgba(0, 255, 255, 0.7), 0 0 10px rgba(0, 255, 255, 0.5);
+    --glow-accent: 0 0 5px rgba(255, 0, 255, 0.7), 0 0 10px rgba(255, 0, 255, 0.5);
+    --glow-error: 0 0 5px rgba(255, 65, 65, 0.7), 0 0 10px rgba(255, 65, 65, 0.5);
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
-    background-color: #000000;
-    color: #00ff41;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
     font-family: 'VT323', monospace;
     font-size: 18px;
-    text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41;
     margin: 0;
     padding: 0;
     min-height: 100vh;
+    background-image:
+        linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+    background-size: 30px 30px;
+    overflow-x: hidden;
 }
 
-/* Container utama untuk layout dashboard */
+
+/* --- ANIMATIONS --- */
+@keyframes scanline {
+    0% {
+        transform: translateY(-10%);
+    }
+    100% {
+        transform: translateY(100vh);
+    }
+}
+
+@keyframes pulse-glow {
+    from {
+        box-shadow: var(--glow-primary) inset, 0 0 10px var(--border-primary);
+    }
+    to {
+        box-shadow: var(--glow-primary) inset, 0 0 20px var(--text-primary);
+    }
+}
+
+/* --- EFEK SCANLINE --- */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(to right, 
+        rgba(0, 255, 65, 0) 0%, 
+        rgba(0, 255, 65, 0.8) 50%, 
+        rgba(0, 255, 65, 0) 100%
+    );
+    box-shadow: var(--glow-primary);
+    animation: scanline 8s linear infinite;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+
+/* --- LAYOUT (Struktur Lama Dipertahankan) --- */
 .dashboard-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
-    padding: 20px;
-    align-items: flex-start;
+    gap: 25px;
+    padding: 25px;
     max-width: 1800px;
     margin: 0 auto;
-    box-sizing: border-box;
-}
-
-/* Panel sisi kiri dan kanan */
-.dashboard-panel {
-    border: 1px solid #00ff41;
-    padding: 20px;
-    box-shadow: 0 0 15px #00ff41 inset;
-    background: rgba(0, 20, 0, 0.5);
-    box-sizing: border-box;
+    align-items: flex-start;
 }
 
 .panel-left {
     flex: 1;
-    max-width: 500px;
-    min-width: 300px;
-    margin-bottom: 20px; /* Jarak bawah untuk tata letak mobile */
+    min-width: 450px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
 }
 
 .panel-right {
     flex: 2;
     min-width: 600px;
-    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
 }
 
-/* Layout responsif untuk layar kecil */
-@media (max-width: 1200px) {
-    .dashboard-container {
-        flex-direction: column;
-        align-items: center;
-    }
-    .panel-left, .panel-right {
-        max-width: 100%;
-        min-width: 100%;
-    }
+.dashboard-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-primary);
+    box-shadow: var(--glow-primary) inset;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+    animation: pulse-glow 4s infinite alternate ease-in-out;
 }
 
+
+/* --- HEADERS & TITLES --- */
 .main-title {
-    text-align: left;
-    color: #00ffff;
-    text-shadow: 0 0 8px #00ffff;
-    border-bottom: 1px solid #00ffff;
+    color: var(--text-secondary);
+    text-shadow: var(--glow-secondary);
+    border-bottom: 1px solid var(--border-secondary);
     padding-bottom: 10px;
-    margin-top: 0;
-    margin-bottom: 20px;
+    margin: 0 0 20px 0;
+    font-size: 28px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-.header-actions {
+.header-actions, .table-header-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
 }
+.header-actions .main-title {
+    border-bottom: none;
+    margin-bottom: 0;
+}
 
-/* Bagian Link Creation */
+/* --- FORMS & INPUTS --- */
 .feature-panel {
-    border: 1px solid #00ffff;
+    border: 1px solid var(--border-secondary);
     padding: 20px;
-    margin-top: 20px;
     background-color: rgba(0, 255, 255, 0.05);
-    box-shadow: 0 0 10px #00ffff inset;
+    box-shadow: var(--glow-secondary) inset;
 }
 
 .feature-panel h2 {
     text-align: center;
-    color: #00ffff;
-    text-shadow: 0 0 8px #00ffff;
-    border-bottom: 1px solid #00ffff;
+    color: var(--text-secondary);
+    text-shadow: var(--glow-secondary);
+    border-bottom: 1px solid var(--border-secondary);
     padding-bottom: 10px;
-    margin-top: 0;
+    margin: 0 0 20px 0;
 }
 
 .input-group {
@@ -104,35 +168,39 @@ body {
 
 .hacker-input {
     width: 100%;
-    background-color: transparent;
-    border: 1px solid #00ff41;
-    color: #00ff41;
+    background-color: rgba(0, 20, 0, 0.5);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
     padding: 10px;
     font-family: inherit;
-    font-size: inherit;
-    box-sizing: border-box;
+    font-size: 18px;
+    transition: box-shadow 0.3s, border-color 0.3s;
 }
 
 .hacker-input:focus {
     outline: none;
-    box-shadow: 0 0 10px #00ff41;
+    border-color: var(--text-secondary);
+    box-shadow: var(--glow-secondary);
 }
 
 .hacker-button {
     width: 100%;
     padding: 10px;
-    background-color: #00ff41;
-    color: #000;
-    border: none;
+    background-color: var(--border-primary);
+    color: var(--bg-dark);
+    border: 1px solid var(--border-primary);
     font-family: inherit;
     font-size: 20px;
     cursor: pointer;
     text-shadow: none;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
+    text-transform: uppercase;
 }
 
 .hacker-button:hover {
-    background-color: #fff;
+    background-color: transparent;
+    color: var(--text-primary);
+    box-shadow: var(--glow-primary);
 }
 
 .hacker-button.small {
@@ -141,170 +209,90 @@ body {
     padding: 5px 10px;
 }
 
-.hacker-button:disabled {
-    background-color: #333;
-    color: #777;
-    cursor: not-allowed;
-    text-shadow: none;
-    border: 1px solid #555;
-}
-
-.hacker-button.red {
-    background-color: #ff4141;
-    color: #fff;
-}
-.hacker-button.red:hover {
-    background-color: #ff7c7c;
-}
-
-/* PENAMBAHAN BARU */
-.hacker-button.cyan {
-    background-color: #00ffff;
-    color: #000;
-}
-.hacker-button.cyan:hover {
-    background-color: #fff;
-}
+.hacker-button.red { background-color: var(--error-color); border-color: var(--error-color); color: #fff; }
+.hacker-button.red:hover { background-color: transparent; color: var(--error-color); box-shadow: var(--glow-error); }
+.hacker-button.cyan { background-color: var(--text-secondary); border-color: var(--text-secondary); color: var(--bg-dark); }
+.hacker-button.cyan:hover { background-color: transparent; color: var(--text-secondary); box-shadow: var(--glow-secondary); }
 
 
-.result-box {
-    margin-top: 20px;
-    padding: 15px;
-    border: 1px dashed #ff00ff;
-    overflow-x: auto;
-}
-
-/* Tabel */
+/* --- TABLES --- */
 .hacker-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
-    overflow-x: auto;
+    font-size: 16px;
 }
 
 .hacker-table th, .hacker-table td {
-    border: 1px solid #00ff41;
-    padding: 8px;
+    border: 1px solid var(--border-primary);
+    padding: 8px 10px;
     text-align: left;
-    white-space: nowrap; /* Mencegah teks terpotong */
+    white-space: nowrap;
 }
 
 .hacker-table th {
-    background-color: rgba(0, 255, 65, 0.2);
-    color: #00ffff;
+    background-color: rgba(0, 255, 65, 0.1);
+    color: var(--text-secondary);
+    text-shadow: var(--glow-secondary);
 }
 
-.action-buttons {
-    display: flex;
-    gap: 5px;
-}
+.hacker-table tbody tr:nth-child(even) { background-color: rgba(0, 255, 65, 0.05); }
+.hacker-table tbody tr:hover { background-color: rgba(0, 255, 65, 0.15); }
 
-.highlight {
-    color: #ff00ff;
-}
+.action-buttons { display: flex; gap: 5px; }
+.highlight { color: var(--text-accent); text-shadow: var(--glow-accent); }
+.error { color: var(--error-color); text-shadow: var(--glow-error); }
 
-.error {
-    color: #ff4141;
-    text-shadow: 0 0 5px #ff4141;
-}
 
-/* Statistik */
+/* --- STATS & CHARTS --- */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 15px;
-    margin-top: 20px;
     text-align: center;
 }
 
 .stat-card {
-    border: 1px solid #00ff41;
+    border: 1px solid var(--border-secondary);
     padding: 15px;
-    background-color: rgba(0, 255, 65, 0.1);
+    background-color: rgba(0, 255, 255, 0.05);
 }
 
-.stat-value {
-    font-size: 36px;
-    color: #00ffff;
-    text-shadow: 0 0 8px #00ffff;
+.stat-value { font-size: 36px; color: var(--text-secondary); text-shadow: var(--glow-secondary); }
+.stat-label { font-size: 16px; margin-top: 5px; color: var(--text-primary); }
+
+canvas {
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-primary);
+    padding: 10px;
 }
 
-.stat-label {
-    font-size: 16px;
-    margin-top: 5px;
-}
-
-/* Grafik */
-#topLinksChart, #browserChart {
-    margin-top: 20px;
-}
-
-/* Log */
+/* --- LOGS & MISC --- */
 #log-section {
-    background: black;
-    border: 1px solid #00ff41;
+    background: rgba(0,0,0,0.8);
+    border: 1px solid var(--border-primary);
     padding: 10px;
     height: 150px;
     overflow-y: auto;
-    font-family: monospace;
     font-size: 14px;
-    margin-top: 20px;
 }
+#log-section p { margin: 2px 0; }
+#advanced-options { display: none; border-left: 2px solid var(--border-secondary); padding-left: 15px; margin-top: 10px;}
 
-#log-section p {
-    margin: 2px 0;
-}
+/* --- MODALS --- */
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.9); }
+.modal-content { background-color: var(--bg-dark); margin: 5% auto; padding: 20px; border: 1px solid var(--border-secondary); box-shadow: var(--glow-secondary); width: 80%; max-width: 900px; }
+.close-btn { color: var(--error-color); float: right; font-size: 38px; font-weight: bold; cursor: pointer; }
+.close-btn:hover, .close-btn:focus { color: #fff; }
 
-/* Modals */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0, 0, 0, 0.8);
-    animation: fadeIn 0.5s;
-}
-
-.modal-content {
-    background-color: #050505;
-    margin: 5% auto;
-    padding: 20px;
-    border: 1px solid #00ff41;
-    box-shadow: 0 0 25px #00ff41;
-    width: 80%;
-    max-width: 900px;
-}
-
-.close-btn {
-    color: #ff00ff;
-    float: right;
-    font-size: 38px;
-    font-weight: bold;
-    text-shadow: 0 0 10px #ff00ff;
-}
-
-.close-btn:hover,
-.close-btn:focus {
-    color: #fff;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* Notifikasi */
+/* --- NOTIFICATIONS --- */
 .click-notification {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #ff4141;
-    color: #fff;
+    top: 20px; right: 20px;
+    background-color: var(--bg-dark);
+    color: var(--text-accent);
     padding: 15px 20px;
-    border: 2px solid #fff;
-    border-radius: 5px;
-    box-shadow: 0 0 20px #000;
+    border: 2px solid var(--border-accent);
+    box-shadow: var(--glow-accent);
     z-index: 2000;
     font-size: 20px;
     text-shadow: none;
@@ -313,34 +301,86 @@ body {
     gap: 15px;
     opacity: 1;
     transition: opacity 0.5s ease-in-out;
-    animation: slideIn 0.5s ease-out;
 }
 
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
+/* --- STYLE UNTUK HALAMAN LOGIN --- */
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-panel {
+    width: 100%;
+    max-width: 500px;
+}
+
+
+/* --- [PENAMBAHAN BARU] ATURAN RESPONSIVE UNTUK MOBILE --- */
+
+/* Untuk Tablet dan Mobile (Layar di bawah 1100px) */
+@media (max-width: 1100px) {
+    .dashboard-container {
+        flex-direction: column; /* Ubah layout menjadi 1 kolom */
+        padding: 15px;
+        gap: 20px;
     }
-    to {
-        transform: translateX(0);
-        opacity: 1;
+
+    .panel-left, .panel-right {
+        min-width: 100%; /* Lebar panel menjadi penuh */
+        gap: 20px;
+    }
+
+    /* Membuat tabel bisa di-scroll horizontal */
+    #location-links-section, #merged-credentials-section {
+        overflow-x: auto;
+    }
+
+    /* Mencegah judul terlalu besar di layar kecil */
+    .main-title {
+        font-size: 24px;
     }
 }
 
-.click-notification span {
-    font-size: 28px;
-    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
-    transform: translate3d(0, 0, 0);
-}
+/* Untuk Mobile Kecil (Layar di bawah 540px) */
+@media (max-width: 540px) {
+    body {
+        font-size: 16px;
+    }
+    
+    .dashboard-container {
+        padding: 10px;
+    }
 
-.click-notification strong {
-    color: #000;
-    text-shadow: none;
-}
+    .dashboard-panel {
+        padding: 15px;
+    }
 
-@keyframes shake {
-    10%, 90% { transform: translate3d(-1px, 0, 0); }
-    20%, 80% { transform: translate3d(2px, 0, 0); }
-    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-    40%, 60% { transform: translate3d(4px, 0, 0); }
+    .stats-grid {
+        grid-template-columns: 1fr 1fr; /* Statistik menjadi 2 kolom */
+    }
+
+    .stat-value {
+        font-size: 28px;
+    }
+
+    .header-actions {
+        flex-direction: column; /* Tombol logout pindah ke bawah judul */
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .table-header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .hacker-button.small {
+        width: 100%;
+        text-align: center;
+    }
 }

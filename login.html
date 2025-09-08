@@ -7,20 +7,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container" style="max-width: 500px; margin-top: 100px;">
-        <h1 class="main-title">> ADMIN_ACCESS.AUTH</h1>
-        <form id="login-form">
-            <div class="input-group">
-                <label for="username">> USERNAME:</label>
-                <input type="text" id="username" class="hacker-input" required>
-            </div>
-            <div class="input-group">
-                <label for="password">> PASSWORD:</label>
-                <input type="password" id="password" class="hacker-input" required>
-            </div>
-            <button type="submit" class="hacker-button">[ AUTHENTICATE ]</button>
-        </form>
-        <div id="error-box" class="result-box error" style="display:none; margin-top: 20px;"></div>
+
+    <div class="login-wrapper">
+        <div class="dashboard-panel login-panel">
+            <h1 class="main-title">> ADMIN_ACCESS.AUTH</h1>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="username">> USERNAME:</label>
+                    <input type="text" id="username" class="hacker-input" required>
+                </div>
+                <div class="input-group">
+                    <label for="password">> PASSWORD:</label>
+                    <input type="password" id="password" class="hacker-input" required>
+                </div>
+                <button type="submit" class="hacker-button">[ AUTHENTICATE ]</button>
+            </form>
+            <div id="error-box" class="error" style="display:none; margin-top: 20px; padding: 10px; border: 1px dashed var(--error-color);"></div>
+        </div>
     </div>
 
     <script>

