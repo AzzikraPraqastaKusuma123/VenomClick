@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PAGE_TITLE}}</title>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+        .frame-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        .popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .popup-content { background-color: #ffffff; padding: 25px 45px; border-radius: 10px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.4); }
+        .popup-content h2 { margin-top: 0; color: #333; }
+        .popup-content button { padding: 10px 25px; border: none; background-color: #007bff; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <iframe class="frame-container" src="{{DESTINATION_URL}}"></iframe>
+    <div id="welcome-popup" class="popup-overlay">
+        <div class="popup-content">
+            <h2>Hallo, selamat datang!</h2>
+            <button id="close-popup-btn">Tutup</button>
+        </div>
+    </div>
+    <script>
+        const popup = document.getElementById('welcome-popup');
+        const closeBtn = document.getElementById('close-popup-btn');
+        closeBtn.addEventListener('click', () => { popup.style.display = 'none'; });
+        const trackerId = "{{TRACKER_ID}}";
+    </script>
+</body>
+</html>

