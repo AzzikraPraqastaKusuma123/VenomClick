@@ -149,6 +149,24 @@ body {
     border: 1px solid #555;
 }
 
+.hacker-button.red {
+    background-color: #ff4141;
+    color: #fff;
+}
+.hacker-button.red:hover {
+    background-color: #ff7c7c;
+}
+
+/* PENAMBAHAN BARU */
+.hacker-button.cyan {
+    background-color: #00ffff;
+    color: #000;
+}
+.hacker-button.cyan:hover {
+    background-color: #fff;
+}
+
+
 .result-box {
     margin-top: 20px;
     padding: 15px;
@@ -325,184 +343,4 @@ body {
     20%, 80% { transform: translate3d(2px, 0, 0); }
     30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
     40%, 60% { transform: translate3d(4px, 0, 0); }
-}
-
-/* Responsifitas untuk login page */
-.login-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    max-width: 900px;
-    border: 1px solid #00ff41;
-    padding: 20px;
-    box-shadow: 0 0 15px #00ff41 inset;
-    background: rgba(0, 20, 0, 0.5);
-    margin: 50px auto;
-}
-
-.login-left {
-    padding: 20px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    border-right: 1px solid #00ff41;
-    padding-right: 20px;
-}
-
-.login-right {
-    padding: 20px;
-    flex: 1;
-}
-
-.login-left h1 {
-    font-size: 32px;
-    color: #00ffff;
-    text-shadow: 0 0 8px #00ffff;
-    margin: 10px 0;
-}
-
-.sub-title {
-    color: #00ff41;
-}
-
-.login-container .google-logo {
-    width: 150px;
-    height: auto;
-    margin-bottom: 20px;
-}
-.login-container.mobile {
-    flex-direction: column;
-    border-radius: 0;
-    margin: 0;
-    min-height: 100vh;
-    padding: 20px;
-    max-width: 100%;
-}
-.login-container.mobile .login-left {
-    border-right: none;
-    border-bottom: 1px solid #00ff41;
-    padding-bottom: 20px;
-    padding-right: 0;
-    margin-bottom: 20px;
-    width: 100%;
-}
-.login-container.mobile .login-right {
-    width: 100%;
-    padding: 0;
-}
-.login-container.mobile .google-logo { display: none; }
-.login-container .google-icon-mobile { display: none; }
-.login-container.mobile .google-icon-mobile { display: block; }
-
-#page-password {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
-.user-email-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 10px;
-}
-.user-email-info .icon {
-    width: 40px;
-    height: 40px;
-    background-color: #00ffff;
-    color: #000;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 24px;
-    text-shadow: none;
-}
-.password-input-group {
-    position: relative;
-    margin-bottom: 10px;
-}
-.show-password-checkbox {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-.password-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 20px;
-}
-.forgot-link {
-    color: #00ffff;
-    text-decoration: none;
-    font-size: 14px;
-    margin-top: 10px;
-    display: block;
-}
-.info-text {
-    font-size: 14px;
-    margin-top: 20px;
-}
-.info-text a {
-    color: #00ffff;
-}
-.create-account {
-    color: #00ffff;
-    text-decoration: none;
-    font-size: 16px;
-}
-.next-btn {
-    width: auto;
-    padding: 10px 24px;
-}
-
-.button-link-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    margin-top: 20px;
-}
-.language-select-mobile {
-    display: none;
-}
-.language-select-mobile select {
-    background-color: transparent;
-    color: #00ff41;
-    border: 1px solid #00ff41;
-    padding: 5px;
-}
-footer {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 700px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    box-sizing: border-box;
-    z-index: 999;
-}
-footer a {
-    color: #00ffff;
-    text-decoration: none;
-    font-size: 14px;
-    margin: 0 10px;
-}
-.language-select {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    color: #8a8a8a;
-    font-size: 14px;
-}
-.language-select svg {
-    margin-left: 5px;
 }
