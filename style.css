@@ -1,4 +1,4 @@
-/* File: style.css - HACKER-UI v9.0 - Polished Edition */
+/* File: style.css - HACKER-UI v9.3 - QR Removed */
 
 @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -162,7 +162,6 @@ canvas { background-color: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-pr
 
 .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.9); backdrop-filter: blur(5px); }
 .modal-content { background-color: var(--bg-dark); margin: 5% auto; padding: 20px; border: 1px solid var(--border-secondary); width: 90%; max-width: 900px; border-radius: var(--panel-border-radius); box-shadow: 0 0 25px rgba(0, 255, 255, 0.3); }
-#qr-code-container { padding: 20px; background: white; margin-bottom: 20px; border-radius: var(--panel-border-radius); }
 .close-btn { color: var(--error-color); float: right; font-size: 38px; font-weight: bold; cursor: pointer; transition: color var(--transition-speed); }
 .close-btn:hover, .close-btn:focus { color: #fff; }
 .map-container { height: 450px; width: 100%; border: 1px solid var(--border-primary); border-radius: var(--panel-border-radius); }
@@ -176,3 +175,5 @@ canvas { background-color: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-pr
 
 .login-wrapper { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 100vh; padding: 20px; }
 .login-panel { width: 100%; max-width: 500px; }
+
+/* --- [DIHAPUS] Semua style untuk QR Code sudah tidak ada --- */

