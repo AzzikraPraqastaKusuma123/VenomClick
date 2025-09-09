@@ -1,18 +1,24 @@
 const mysql = require("mysql2");
 
-const db = mysql.createConnection({
+// MENGGUNAKAN createPool untuk koneksi yang lebih stabil dan efisien
+const pool = mysql.createPool({
   host: "localhost",
-  user: "root",        // sesuaikan
-  password: "",        // sesuaikan
-  database: "tracking_app"  // pastikan ini tracking_app
+  user: "root",       // sesuaikan
+  password: "",       // sesuaikan
+  database: "tracking_app", // pastikan ini tracking_app
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-db.connect((err) => {
+pool.getConnection((err, conn) => {
   if (err) {
-    console.error("❌ Gagal koneksi DB:", err);
+    console.error("❌ Gagal koneksi ke Pool DB:", err);
   } else {
-    console.log("✅ Terhubung ke database MySQL tracking_app.");
+    console.log("✅ Terhubung ke database MySQL tracking_app via Pool.");
+    conn.release(); // Lepaskan koneksi setelah cek berhasil
   }
 });
 
-module.exports = db;
+// Ekspor pool promise-based untuk digunakan di seluruh aplikasi
+module.exports = pool.promise();
