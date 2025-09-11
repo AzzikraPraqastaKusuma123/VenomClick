@@ -15,17 +15,17 @@
     "body-parser": "^2.2.0",
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
+    "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.14.4",
+    "mysql2": "^3.14.5",
     "nanoid": "^3.3.11",
     "node-fetch": "^3.3.2",
     "node-telegram-bot-api": "^0.66.0",
     "nodemailer": "^7.0.6",
     "request-ip": "^3.3.0",
     "socket.io": "^4.8.1",
-    "ua-parser-js": "^2.0.4"
+    "ua-parser-js": "^2.0.5"
   },
   "description": ""
 }

