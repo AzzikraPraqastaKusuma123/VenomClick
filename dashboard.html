@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>:: HACKER-UI DASHBOARD v13.4 (Definitive Final) ::</title>
+    <title>:: HACKER-UI DASHBOARD v14.2 (Final) ::</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -81,6 +81,11 @@
             <div class="dashboard-panel">
                  <button id="submit-btn" class="hacker-button">[ GENERATE LINK ]</button>
                  <div id="result-box" class="result-box-hidden" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="dashboard-panel">
+                 <h1 class="main-title">> SECURITY_CONTROLS</h1>
+                 <a href="/admin-management.html" class="hacker-button small cyan"><i class="fa-solid fa-users-cog"></i> MANAGE ADMINS</a>
             </div>
 
             <div class="dashboard-panel">
@@ -161,7 +166,10 @@
         const logoutBtn = document.getElementById('logout-btn');
         const advancedToggle = document.getElementById('advanced-toggle'), advancedOptions = document.getElementById('advanced-options');
         const notificationSound = document.getElementById('notification-sound');
+        
+        // Modal Maps
         const modal = document.getElementById('map-modal'), modalTitle = document.getElementById('modal-title'), closeBtn = modal.querySelector('.close-btn'), mapActionsDiv = document.getElementById('map-actions');
+
         const exportExcelBtn = document.getElementById('export-excel-btn');
         let topLinksChart, browserChart, map, markersLayer, realtimeMap, realtimeMarkersLayer, isAudioEnabled = false;
         
@@ -353,10 +361,8 @@
                         });
                         const latestLocation = validLocations[0];
                         
-                        // --- PERBAIKAN FINAL LINK GOOGLE MAPS ---
                         const googleMapsUrl = `https://googleusercontent.com/maps.google.com/?q=-6.18417150,106.729008002LAT,LONG4{latestLocation.latitude},${latestLocation.longitude}`;
-                        // --- AKHIR PERBAIKAN ---
-
+                        
                         mapActionsDiv.innerHTML = `<a href="${googleMapsUrl}" target="_blank" class="hacker-button"><i class="fa-solid fa-location-arrow"></i> VIEW ON GOOGLE MAPS</a>`;
                         map.fitBounds(markersLayer.getBounds());
                     } else { mapActionsDiv.innerHTML = `<p class="error">No valid location data found.</p>`; map.setView([0, 0], 2); }
@@ -384,12 +390,10 @@
             if (data.message) { intelResultsDiv.innerHTML = `<p class="error">> ANALYSIS FAILED: ${data.message}</p>`; return; }
             let html = '';
             
-            // --- PERBAIKAN FINAL LINK GOOGLE MAPS DI PANEL INTEL ---
             if (data.home) { const mapUrl = `https://googleusercontent.com/maps.google.com/?q=-6.18417150,106.729008002LAT,LONG5{data.home.lat},${data.home.lon}`; html += `<p>> [🏠] Probable Home Location: <a href="${mapUrl}" target="_blank">[View on Map]</a> (Based on ${data.home.count} visits)</p>`;
             } else { html += `<p>> [🏠] Probable Home Location: <span class="error">Not enough data.</span></p>`; }
             if (data.work) { const mapUrl = `https://googleusercontent.com/maps.google.com/?q=-6.18417150,106.729008002LAT,LONG6{data.work.lat},${data.work.lon}`; html += `<p>> [🏢] Probable Work Location: <a href="${mapUrl}" target="_blank">[View on Map]</a> (Based on ${data.work.count} visits)</p>`;
             } else { html += `<p>> [🏢] Probable Work Location: <span class="error">Not enough data.</span></p>`; }
-            // --- AKHIR PERBAIKAN ---
 
             html += `<hr class="intel-hr">`;
             if (data.anomalies && data.anomalies.length > 0) {
@@ -458,7 +462,7 @@
             });
             closeBtn.onclick = () => { modal.style.display = "none" };
             window.addEventListener('click', (event) => { if (event.target == modal) { modal.style.display = "none"; } });
-
+            
             const linkTypeSelect = document.getElementById('link-type');
             const categoryWrapper = document.getElementById('category-wrapper');
             const submitBtn = document.getElementById('submit-btn');

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: ADMIN MANAGEMENT ::</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <script>
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+    </script>
+
+    <div class="dashboard-container">
+        <div class="panel-full-width"> <div class="dashboard-panel">
+                <div class="header-actions">
+                    <h1 class="main-title">> ADMIN_MANAGEMENT.SEC</h1>
+                    <a href="/dashboard.html" class="hacker-button small cyan"><i class="fa-solid fa-arrow-left"></i> BACK TO DASHBOARD</a>
+                </div>
+            </div>
+
+            <div class="dashboard-panel">
+                <h2 class="main-title" style="font-size: 22px; border-color: var(--border-accent); color: var(--text-accent);">> Create / Update Admin</h2>
+                <form id="admin-form">
+                    <div class="input-group">
+                        <label for="admin-username">> Enter Username:</label>
+                        <input type="text" id="admin-username" class="hacker-input" required placeholder="New or existing admin username...">
+                    </div>
+                    <div class="input-group">
+                        <label for="admin-password">> Set New Password:</label>
+                        <input type="password" id="admin-password" class="hacker-input" required placeholder="Min. 6 characters...">
+                    </div>
+                    <button type="submit" class="hacker-button">[ SAVE ADMIN ]</button>
+                </form>
+                <div id="admin-result-box" class="result-box-hidden" style="margin-top: 20px;"></div>
+            </div>
+
+            <div class="dashboard-panel">
+                <h2 class="main-title" style="font-size: 22px;">> Existing Admin Accounts</h2>
+                <div id="admin-list-container" class="table-container">
+                    <p class="highlight">> Loading admin list...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const authToken = localStorage.getItem('authToken');
+        const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
+
+        const adminForm = document.getElementById('admin-form');
+        const adminResultBox = document.getElementById('admin-result-box');
+        const adminListContainer = document.getElementById('admin-list-container');
+
+        async function fetchProtected(url, options = {}) {
+            const response = await fetch(url, { ...options, headers: { ...options.headers, ...authHeaders } });
+            if (response.status === 401) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/login.html';
+                throw new Error('Unauthorized');
+            }
+            return response;
+        }
+
+        async function fetchAdmins() {
+            try {
+                const response = await fetchProtected('/api/admins');
+                const admins = await response.json();
+                renderAdminTable(admins);
+            } catch (error) {
+                adminListContainer.innerHTML = `<p class="error">> Failed to load admin list: ${error.message}</p>`;
+            }
+        }
+
+        function renderAdminTable(admins) {
+            if (!admins || admins.length === 0) {
+                adminListContainer.innerHTML = `<p class="highlight">> No admin accounts found.</p>`;
+                return;
+            }
+            let html = `<table class="hacker-table"><thead><tr><th>Username</th><th>Created At</th><th>Actions</th></tr></thead><tbody>`;
+            admins.forEach(admin => {
+                html += `
+                    <tr id="admin-row-${admin.id}">
+                        <td class="highlight">${admin.username}</td>
+                        <td>${new Date(admin.created_at).toLocaleString('id-ID')}</td>
+                        <td>
+                            <button class="hacker-button small red" onclick="deleteAdmin(${admin.id}, '${admin.username}')">
+                                <i class="fa-solid fa-trash-can"></i> DELETE
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+            adminListContainer.innerHTML = html;
+        }
+
+        async function deleteAdmin(id, username) {
+            if (confirm(`Are you sure you want to permanently delete admin '${username}'?\nThis action cannot be undone.`)) {
+                try {
+                    const response = await fetchProtected(`/api/admins/${id}`, { method: 'DELETE' });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.message);
+                    
+                    document.getElementById(`admin-row-${id}`).remove();
+                    alert(`Admin '${username}' has been deleted.`);
+                } catch (error) {
+                    alert(`Error deleting admin: ${error.message}`);
+                }
+            }
+        }
+
+        adminForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = adminForm.querySelector('button');
+            submitBtn.textContent = "[ ...SAVING... ]";
+            submitBtn.disabled = true;
+
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+
+            try {
+                const response = await fetchProtected('/api/admins', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password })
+                });
+                const result = await response.json();
+                adminResultBox.className = 'result-box-visible';
+                if (!response.ok) {
+                    throw new Error(result.message);
+                }
+                adminResultBox.innerHTML = `<p>> SUCCESS: ${result.message}</p>`;
+                adminForm.reset();
+                fetchAdmins(); // Refresh the list
+            } catch (err) {
+                adminResultBox.innerHTML = `<p class="error">> ERROR: ${err.message}</p>`;
+            } finally {
+                submitBtn.textContent = "[ SAVE ADMIN ]";
+                submitBtn.disabled = false;
+                setTimeout(() => {
+                    adminResultBox.className = 'result-box-hidden';
+                }, 4000);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', fetchAdmins);
+    </script>
+</body>
+</html>

