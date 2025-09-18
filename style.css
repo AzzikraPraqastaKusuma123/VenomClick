@@ -1,5 +1,7 @@
-/* File: style.css - HACKER-UI v9.3 - QR Removed */
+/* File: style.css - HACKER-UI v9.3 + VENOMCLICK TITLE */
 
+/* --- TAMBAHAN FONT BARU --- */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
 :root {
@@ -13,6 +15,10 @@
     --border-primary: rgba(0, 255, 65, 0.5);
     --border-secondary: rgba(0, 255, 255, 0.5);
     --border-accent: rgba(255, 0, 255, 0.5);
+
+    /* --- TAMBAHAN WARNA BARU UNTUK JUDUL --- */
+    --neon-cyan: #00ffff;
+    --neon-magenta: #ff00ff;
     
     --transition-speed: 0.3s;
     --panel-border-radius: 4px;
@@ -176,4 +182,147 @@ canvas { background-color: rgba(0, 0, 0, 0.5); border: 1px solid var(--border-pr
 .login-wrapper { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 100vh; padding: 20px; }
 .login-panel { width: 100%; max-width: 500px; }
 
-/* --- [DIHAPUS] Semua style untuk QR Code sudah tidak ada --- */
+/* --- KODE BARU UNTUK JUDUL VENOMCLICK --- */
+.venom-title {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 52px;
+    text-align: center;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    position: relative;
+    color: transparent; /* Teks asli dibuat transparan agar efek glitch terlihat */
+}
+
+.venom-title .glitch {
+    position: relative;
+    display: inline-block;
+}
+
+.venom-title .glitch:hover {
+    cursor: pointer;
+}
+
+.venom-title .glitch::before,
+.venom-title .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+
+.venom-title .glitch::before {
+    left: 2px;
+    color: white; /* Warna lapisan glitch */
+    text-shadow: -2px 0 var(--neon-magenta);
+    animation: glitch-anim-1 2s infinite linear alternate-reverse;
+}
+
+.venom-title .glitch::after {
+    left: -2px;
+    color: white; /* Warna lapisan glitch */
+    text-shadow: -2px 0 var(--neon-cyan);
+    animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim-1 {
+    0% { clip: rect(42px, 9999px, 44px, 0); } 20% { clip: rect(12px, 9999px, 60px, 0); } 40% { clip: rect(40px, 9999px, 62px, 0); } 60% { clip: rect(24px, 9999px, 70px, 0); } 80% { clip: rect(30px, 9999px, 80px, 0); } 100% { clip: rect(5px, 9999px, 50px, 0); }
+}
+@keyframes glitch-anim-2 {
+    0% { clip: rect(2px, 9999px, 90px, 0); } 20% { clip: rect(80px, 9999px, 100px, 0); } 40% { clip: rect(40px, 9999px, 55px, 0); } 60% { clip: rect(10px, 9999px, 35px, 0); } 80% { clip: rect(75px, 9999px, 95px, 0); } 100% { clip: rect(25px, 9999px, 70px, 0); }
+}
+
+.color-magenta { color: var(--neon-magenta); }
+.color-cyan { color: var(--neon-cyan); }
+/* --- GAYA LOGO & JUDUL VENOMCLICK (DIRAPIKAN) --- */
+
+.venom-logo {
+    display: block;
+    max-width: 150px; /* Ukuran logo diatur agar tidak terlalu besar */
+    height: auto;
+    image-rendering: pixelated; /* Menjaga gambar pixel tetap tajam */
+    margin: 0 auto 5px auto; /* Mengurangi jarak antara logo dan judul */
+    filter: drop-shadow(0 0 15px var(--neon-magenta));
+    transition: all 0.3s ease-in-out;
+}
+
+.venom-logo:hover {
+    filter: drop-shadow(0 0 25px var(--neon-cyan));
+    transform: scale(1.05);
+}
+
+.venom-title {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 36px; /* Ukuran font disesuaikan agar proporsional */
+    text-align: center;
+    text-transform: uppercase;
+    position: relative;
+    color: transparent; /* Teks asli disembunyikan untuk efek glitch */
+    margin-bottom: 25px; /* Memberi jarak yang cukup ke form di bawahnya */
+    line-height: 1.2;
+}
+
+.venom-title .glitch { 
+    position: relative; 
+    display: inline-block; 
+}
+
+.venom-title .glitch:hover { 
+    cursor: pointer; 
+}
+
+.venom-title .glitch .color-magenta { 
+    color: var(--neon-magenta); 
+}
+
+.venom-title .glitch .color-cyan { 
+    color: var(--neon-cyan); 
+}
+
+.venom-title .glitch::before,
+.venom-title .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+
+.venom-title .glitch::before {
+    left: 2px;
+    color: var(--text-light);
+    text-shadow: -2px 0 var(--neon-magenta);
+    animation: glitch-anim-1 2s infinite linear alternate-reverse;
+}
+
+.venom-title .glitch::after {
+    left: -2px;
+    color: var(--text-light);
+    text-shadow: -2px 0 var(--neon-cyan);
+    animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+
+@keyframes glitch-anim-1 { 
+    0% { clip: rect(42px, 9999px, 44px, 0); } 
+    20% { clip: rect(12px, 9999px, 60px, 0); } 
+    40% { clip: rect(40px, 9999px, 62px, 0); } 
+    60% { clip: rect(24px, 9999px, 70px, 0); } 
+    80% { clip: rect(30px, 9999px, 80px, 0); } 
+    100% { clip: rect(5px, 9999px, 50px, 0); } 
+}
+
+@keyframes glitch-anim-2 { 
+    0% { clip: rect(2px, 9999px, 90px, 0); } 
+    20% { clip: rect(80px, 9999px, 100px, 0); } 
+    40% { clip: rect(40px, 9999px, 55px, 0); } 
+    60% { clip: rect(10px, 9999px, 35px, 0); } 
+    80% { clip: rect(75px, 9999px, 95px, 0); } 
+    100% { clip: rect(25px, 9999px, 70px, 0); } 
+}
+

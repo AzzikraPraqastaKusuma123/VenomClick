@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Telegram API Tester</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .test-panel { max-width: 600px; width: 100%; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-panel test-panel">
+        <h1 class="main-title">> TELEGRAM API DIRECT TEST</h1>
+        <p style="margin-bottom: 20px;">Gunakan form ini untuk mengirim pesan tes langsung ke API Telegram, tanpa melalui server.js.</p>
+        <div class="input-group">
+            <label for="botToken">> Masukkan Bot Token Anda:</label>
+            <input type="text" id="botToken" class="hacker-input" placeholder="Contoh: 8259282428:AAHmwY4Fwyb...">
+        </div>
+        <div class="input-group">
+            <label for="chatID">> Masukkan Chat ID Grup/Channel Anda:</label>
+            <input type="text" id="chatID" class="hacker-input" placeholder="Contoh: -1002911618859">
+        </div>
+        <button id="send-test-btn" class="hacker-button">[ KIRIM PESAN TES ]</button>
+        <div id="result-box" class="result-box-hidden" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const sendBtn = document.getElementById('send-test-btn');
+        const tokenInput = document.getElementById('botToken');
+        const chatInput = document.getElementById('chatID');
+        const resultBox = document.getElementById('result-box');
+
+        sendBtn.addEventListener('click', async () => {
+            const botToken = tokenInput.value.trim();
+            const chatID = chatInput.value.trim();
+
+            if (!botToken || !chatID) {
+                alert('Token dan Chat ID tidak boleh kosong!');
+                return;
+            }
+
+            const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+            const messageText = `<b>Tes Browser Berhasil! ✅</b>\n\n<a href="https://www.google.com">Ini adalah link tes yang dikirim langsung dari browser.</a>`;
+
+            const payload = {
+                chat_id: chatID,
+                text: messageText,
+                parse_mode: 'HTML'
+            };
+
+            sendBtn.textContent = '[ ... MENGIRIM ... ]';
+            sendBtn.disabled = true;
+            resultBox.className = 'result-box-hidden';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!data.ok) {
+                    throw new Error(`Telegram API Error: ${data.description}`);
+                }
+
+                resultBox.innerHTML = `<p class="highlight-green">> SUKSES: Pesan tes berhasil dikirim! Silakan periksa channel Telegram Anda.</p>`;
+
+            } catch (err) {
+                resultBox.innerHTML = `<p class="error">> GAGAL: ${err.message}</p>`;
+            } finally {
+                resultBox.className = 'result-box-visible';
+                sendBtn.textContent = '[ KIRIM PESAN TES ]';
+                sendBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

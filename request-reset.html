@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>:: REQUEST RESET ::</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="dashboard-panel login-panel" style="text-align: center;">
+            <h1 class="main-title">> PASSWORD_RECOVERY.SYS</h1>
+            <p style="font-size: 18px; margin-bottom: 25px;">
+                Tindakan ini akan mengirimkan notifikasi berisi link reset untuk SEMUA akun admin ke channel Telegram yang terdaftar.
+            </p>
+            <button id="send-notification-btn" class="hacker-button red">[ KIRIM NOTIFIKASI RESET ]</button>
+            <a href="/login.html" class="hacker-button small" style="width: 100%; margin-top: 15px;">[ BATAL ]</a>
+            <div id="message-box" style="display:none; margin-top: 20px; padding: 10px;"></div>
+        </div>
+    </div>
+    <script>
+        const sendBtn = document.getElementById('send-notification-btn');
+        const messageBox = document.getElementById('message-box');
+
+        sendBtn.addEventListener('click', async () => {
+            sendBtn.textContent = "[ ...MENGIRIM... ]";
+            sendBtn.disabled = true;
+            messageBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/request-password-reset-telegram', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Gagal mengirim permintaan.');
+                }
+
+                messageBox.className = 'highlight-green';
+                messageBox.textContent = `> SUCCESS: ${data.message}`;
+
+            } catch (err) {
+                messageBox.className = 'error';
+                messageBox.textContent = `> ERROR: ${err.message}`;
+            } finally {
+                messageBox.style.display = 'block';
+                sendBtn.textContent = "[ KIRIM NOTIFIKASI RESET ]";
+                sendBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

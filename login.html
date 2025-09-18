@@ -10,8 +10,18 @@
 
     <div class="login-wrapper">
         <div class="dashboard-panel login-panel">
-            <h1 class="main-title">> ADMIN_ACCESS.AUTH</h1>
+            <img src="/img/logo.png" alt="Venom Logo" class="venom-logo">
+            <h1 class="venom-title" style="padding-top: 25px; font-size: 40px;">
+                <span class="glitch" data-text="VENOMCLICK">
+                    <span class="color-magenta">VENOM</span><span class="color-cyan">CLICK</span>
+                </span>
+            </h1>
             <form id="login-form">
+                            <div class="intro-text-panel">
+                <p class="intro-heading">Advanced Multi-Vector Analysis & Tracking Suite</p>
+                <p class="warning-text">! Use with discretion. Unauthorized access is prohibited !</p>
+                <p class="credit-text">by -- PHΛNTØM GRUP --</p>
+            </div>
                 <div class="input-group">
                     <label for="username">> USERNAME:</label>
                     <input type="text" id="username" class="hacker-input" required>
@@ -22,11 +32,16 @@
                 </div>
                 <button type="submit" class="hacker-button">[ AUTHENTICATE ]</button>
             </form>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="/request-reset.html" style="color: var(--text-secondary); font-size: 16px;">[ Lupa Username / Password? ]</a>
+            </div>
             <div id="error-box" class="error" style="display:none; margin-top: 20px; padding: 10px; border: 1px dashed var(--error-color);"></div>
         </div>
     </div>
 
     <script>
+        // Tidak ada perubahan pada script, sudah benar
         const loginForm = document.getElementById('login-form');
         const errorBox = document.getElementById('error-box');
 
